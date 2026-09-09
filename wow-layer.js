@@ -55,7 +55,7 @@ function setCaption(level) {
 function resetWow() {
   placed = false;
   wow.classList.remove('active', 'danger', 'caption-show', 'burst', 'manual-pulse');
-  document.documentElement.style.setProperty('--wow-gravity', '0');
+  applyVisualVars(0);
   lastLevel = -1;
 }
 
@@ -82,10 +82,28 @@ function burst() {
   setTimeout(() => { burstLocked = false; }, 2200);
 }
 
+function applyVisualVars(g) {
+  const root = document.documentElement.style;
+  root.setProperty('--wow-gravity', g.toFixed(3));
+  root.setProperty('--wow-vignette-a', (g * 0.58).toFixed(3));
+  root.setProperty('--wow-mid-a', (g * 0.06).toFixed(3));
+  root.setProperty('--wow-shadow-a', (g * 0.22).toFixed(3));
+  root.setProperty('--wow-shadow-blur', `${Math.round(g * 120)}px`);
+  root.setProperty('--wow-lens-opacity', (g * 0.85).toFixed(3));
+  root.setProperty('--wow-lens-blur', `${(g * 1.4).toFixed(2)}px`);
+  root.setProperty('--wow-lens-scale', (1 + g * 0.025).toFixed(4));
+  root.setProperty('--wow-saturate', (1 + g * 0.55).toFixed(3));
+  root.setProperty('--wow-streak-opacity', Math.max(0, Math.min(0.82, (g - 0.18) * 1.35)).toFixed(3));
+  root.setProperty('--wow-streak-width', `${Math.round(g * 30)}px`);
+  root.setProperty('--wow-streak-scale', (0.3 + g * 1.7).toFixed(3));
+  root.setProperty('--wow-blue-a', (g * 0.025).toFixed(3));
+  root.setProperty('--wow-red-a', (g * 0.03).toFixed(3));
+}
+
 function applyGravity(v) {
   gravity = Math.max(0, Math.min(100, v));
   const g = gravity / 100;
-  document.documentElement.style.setProperty('--wow-gravity', g.toFixed(3));
+  applyVisualVars(g);
   wow.classList.toggle('active', placed);
   wow.classList.toggle('danger', placed && gravity >= 78);
 
