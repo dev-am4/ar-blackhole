@@ -17,18 +17,12 @@ function makeCinematicPrimary(hole) {
   if (!hole?.userData || legacyDisabled) return;
   const { core, halo, disk, particles, lens } = hole.userData;
 
-  // These generated/procedural objects created the old look. Keep them only as
-  // hidden transforms so tracking/gravity math in blackhole.js stays untouched.
   if (core) core.visible = false;
   if (halo) halo.visible = false;
   if (disk) disk.visible = false;
   if (lens) lens.visible = false;
 
-  // Preserve real-time motion around the new cinematic black hole.
-  if (particles) {
-    particles.visible = true;
-    particles.material.opacity = 1;
-  }
+  if (particles) particles.visible = true;
 
   legacyDisabled = true;
   document.documentElement.dataset.bhCinematicPrimary = '1';
@@ -66,25 +60,27 @@ function updateAnchor(renderer, scene, camera) {
     viewCamera = xrCamera?.cameras?.[0] || xrCamera || camera;
   }
 
-  // core remains a valid transform even though it is visually hidden.
   hole.userData.core.getWorldPosition(coreWorld);
   viewCamera.getWorldPosition(cameraWorld);
   ndc.copy(coreWorld).project(viewCamera);
 
   const inFront = ndc.z > -1.2 && ndc.z < 1.2;
-  const nearScreen = Math.abs(ndc.x) < 1.35 && Math.abs(ndc.y) < 1.35;
+  const nearScreen = Math.abs(ndc.x) < 1.28 && Math.abs(ndc.y) < 1.28;
   const visible = inFront && nearScreen;
   root.dataset.bhAnchor = visible ? '1' : '0';
   if (!visible) return;
 
   const x = (ndc.x * 0.5 + 0.5) * innerWidth;
   const y = (-ndc.y * 0.5 + 0.5) * innerHeight;
-  const distance = Math.max(0.35, cameraWorld.distanceTo(coreWorld));
+  const distance = Math.max(0.4, cameraWorld.distanceTo(coreWorld));
   const fov = Number.isFinite(viewCamera.fov) ? viewCamera.fov : 62;
   const focalPx = innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(fov) * 0.5));
-  const worldDiameter = 1.95 * Math.max(0.55, hole.scale.x || 1);
+
+  // The alpha-cropped footage fills the square much more efficiently than the
+  // original portrait asset, so use a smaller physical diameter to avoid a giant sticker look.
+  const worldDiameter = 1.55 * Math.max(0.55, hole.scale.x || 1);
   const projected = focalPx * worldDiameter / distance;
-  const size = THREE.MathUtils.clamp(projected, 165, Math.min(innerWidth * 0.88, innerHeight * 0.78));
+  const size = THREE.MathUtils.clamp(projected, 145, Math.min(innerWidth * 0.76, innerHeight * 0.68));
 
   const style = root.style;
   style.setProperty('--bh-x', `${x.toFixed(1)}px`);
