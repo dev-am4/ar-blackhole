@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#02040a">
-  <meta name="description" content="Black Hole AR สื่อเสริมการเรียนรู้ Zone 2 Big Bang Dome สำหรับนิทรรศการดาราศาสตร์และอวกาศ ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์">
-  <title>Black Hole AR · Zone 2 Big Bang Dome · นครสวรรค์</title>
+  <meta name="description" content="AR Black Hole สถานีที่ 5 ใน Space Mission Interactive Zone ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์">
+  <title>AR Black Hole · Zone 5 Space Mission · นครสวรรค์</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="/blackhole.css">
   <link rel="stylesheet" href="/wow.css">
@@ -17,42 +17,37 @@
   <main id="intro">
     <div class="intro-shell">
       <div class="venue">ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์</div>
-      <div class="brand">ZONE 2 · BIG BANG DOME · AR LEARNING EXTENSION</div>
-      <div class="supplement-badge">สื่อเสริมจากประสบการณ์ Big Bang Dome</div>
+      <div class="brand">ZONE 5 · SPACE MISSION INTERACTIVE</div>
+      <div class="supplement-badge">STATION 5 · AR BLACK HOLE</div>
 
       <div class="preview" aria-hidden="true"><span class="lens-ring"></span></div>
 
-      <h1>หลุมดำ<span>Black Hole · Extreme Gravity</span></h1>
-      <p class="lede">หลังจากติดตามเรื่องราวการกำเนิดและการขยายตัวของเอกภพใน Big Bang Dome ลองสำรวจอีกหนึ่งปรากฏการณ์สุดขั้วของจักรวาล — บริเวณที่แรงโน้มถ่วงรุนแรงจนเมื่อผ่าน “ขอบฟ้าเหตุการณ์” แล้ว แม้แต่แสงก็ไม่สามารถกลับออกมาได้</p>
-
-      <div class="science-note">
-        <b>เชื่อมโยงกับเรื่องราวใน Dome</b>
-        <span>หลุมดำไม่ได้เกิดขึ้นพร้อม Big Bang โดยตรง แต่เกิดขึ้นภายหลังในเอกภพที่วิวัฒน์แล้ว เช่น จากการยุบตัวของดาวฤกษ์มวลมาก ขณะที่ต้นกำเนิดของหลุมดำมวลยิ่งยวดยังเป็นหัวข้อวิจัยสำคัญ</span>
-      </div>
+      <h1>หลุมดำ<span>Black Hole AR</span></h1>
+      <p class="lede">วางหลุมดำในพื้นที่จริง แล้วเข้าใกล้เพื่อสำรวจแรงโน้มถ่วงสุดขั้วและขอบฟ้าเหตุการณ์</p>
 
       <div class="steps" aria-label="วิธีเล่น">
-        <div class="step"><b>01 · OPEN</b>อนุญาตกล้อง แล้วเล็งไปยังพื้นโล่ง</div>
-        <div class="step"><b>02 · PLACE</b>แตะวางหลุมดำเมื่อระบบจับพื้นได้</div>
-        <div class="step"><b>03 · EXPLORE</b>เข้าใกล้จนแรงโน้มถ่วงพุ่งสู่ Event Horizon</div>
+        <div class="step"><b>01</b>เปิดกล้อง</div>
+        <div class="step"><b>02</b>วางหลุมดำ</div>
+        <div class="step"><b>03</b>เข้าใกล้และสำรวจ</div>
       </div>
 
-      <button id="startBtn">เปิดกล้อง · สำรวจหลุมดำ</button>
-      <p class="compat">กิจกรรม AR นี้เป็นสื่อเสริมการเรียนรู้ของ Zone 2 ไม่ได้แทนประสบการณ์หลักภายใน Big Bang Dome · Android ที่รองรับ WebXR ใช้การติดตามตำแหน่งจริงแบบ 6DoF · iPhone ใช้กล้อง + ไจโรและ interaction ผ่านการแตะ</p>
+      <button id="startBtn">เริ่ม AR</button>
+      <p class="compat">ใช้มือถือหรือแท็บเล็ต · ไม่ต้องติดตั้งแอป</p>
     </div>
   </main>
 
-  <section id="ar" aria-label="Black Hole AR · Zone 2 Big Bang Dome">
+  <section id="ar" aria-label="AR Black Hole · Station 5 · Space Mission Interactive Zone">
     <div class="topbar">
       <span id="statusDot" class="status-dot"></span>
       <span id="statusText" class="status-text">กำลังเตรียม</span>
-      <span class="zone-mark">ZONE 2 · NAKHON SAWAN</span>
+      <span class="zone-mark">ZONE 5 · STATION 5</span>
       <button id="exitBtn" class="exit">ออก</button>
     </div>
 
     <div class="gravity-card">
       <div class="gravity-head"><span>BLACK HOLE · GRAVITY FIELD</span><strong id="meterValue">0%</strong></div>
       <div class="meter"><i id="meterFill"></i></div>
-      <p class="gravity-fact">เข้าใกล้หรือเร่งแรงดูดเพื่อดูการเปลี่ยนผ่านจากวงโคจรสู่สภาวะแรงโน้มถ่วงสุดขั้ว</p>
+      <p class="gravity-fact">เข้าใกล้เพื่อเพิ่มแรงโน้มถ่วง</p>
     </div>
 
     <div id="hint" class="hint">กำลังเปิดกล้อง…</div>
