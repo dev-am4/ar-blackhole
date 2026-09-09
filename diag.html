@@ -1,191 +1,55 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>ตรวจเครื่อง · ป่าดงพงไพร AR</title>
+<meta name="theme-color" content="#02040a">
+<title>Black Hole AR · Diagnostics</title>
 <style>
-:root{--ink:#101C16;--paper:#EBE6D8;--lichen:#A9C0A2;--ok:#7BD88F;--bad:#FF6B6B;--warn:#FFD166}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--ink);color:var(--paper);font-family:system-ui,sans-serif;
-  padding:24px 18px calc(env(safe-area-inset-bottom) + 40px);line-height:1.6}
-h1{font-size:20px;margin-bottom:4px}
-.sub{font-size:13px;color:var(--lichen);margin-bottom:20px}
-button{background:var(--paper);color:var(--ink);border:0;border-radius:4px;
-  padding:14px 20px;font:inherit;font-weight:600;font-size:16px;width:100%;margin-bottom:18px}
-.row{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid rgba(169,192,162,.18);
-  font-size:13.5px;align-items:flex-start}
-.row b{flex:none;width:16px}
-.row .k{flex:1}
-.row .v{font-family:ui-monospace,monospace;font-size:12px;color:var(--lichen);
-  text-align:right;word-break:break-all;max-width:52%}
-.ok b{color:var(--ok)} .bad b{color:var(--bad)} .warn b{color:var(--warn)}
-#sum{margin-top:20px;padding:14px;border-radius:4px;background:rgba(169,192,162,.1);
-  font-size:14px;display:none}
-#sum.on{display:block}
-canvas{width:100%;max-width:320px;margin-top:14px;border:1px solid rgba(169,192,162,.3);
-  border-radius:3px;display:none;background:
-  repeating-conic-gradient(#555 0 25%,#777 0 50%) 50%/16px 16px}
-canvas.on{display:block}
-.cap{font-size:12px;color:var(--lichen);margin-top:6px}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#02040a;color:#f4f6fb;font-family:Tahoma,system-ui,sans-serif;padding:22px}.wrap{max-width:680px;margin:auto}h1{font-size:30px;margin:8px 0}.sub{color:#9eabc7;line-height:1.6}.grid{display:grid;gap:9px;margin:20px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid rgba(150,185,255,.2);border-radius:14px;background:rgba(10,15,31,.8)}.row b{font-size:13px}.state{font:700 11px ui-monospace,monospace;color:#ffd28f}.ok{color:#91f1bd}.bad{color:#ff8d96}button,a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 16px;border-radius:999px;border:1px solid rgba(150,185,255,.25);background:#111a31;color:white;text-decoration:none;font:700 14px inherit}button{width:100%;cursor:pointer;background:linear-gradient(135deg,#ffe5b5,#ff9e50);color:#130b07;border:0}pre{white-space:pre-wrap;word-break:break-word;padding:14px;border-radius:14px;background:#000;border:1px solid rgba(150,185,255,.16);color:#9ce9bd;font:11px/1.5 ui-monospace,monospace}.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 </style>
 </head>
-<body>
-<h1>ตรวจเครื่อง</h1>
-<p class="sub">กดปุ่มแล้วรอสักครู่ ระบบจะไล่ทดสอบทีละขั้นจนกว่าจะเจอจุดที่ล้ม</p>
-<button id="go">เริ่มตรวจ</button>
-<div id="out"></div>
-<canvas id="cv" width="320" height="180"></canvas>
-<p class="cap" id="cap"></p>
-<div id="sum"></div>
-
+<body><main class="wrap">
+<div style="font:700 10px ui-monospace,monospace;color:#8ddcff;letter-spacing:.14em">BLACK HOLE AR · DIAGNOSTICS</div>
+<h1>ตรวจความพร้อมเครื่อง</h1>
+<p class="sub">หน้านี้ไม่เปิด AR เต็มรูปแบบ แต่ตรวจเงื่อนไขหลักก่อนใช้งานจริงบนมือถือ</p>
+<div class="grid">
+  <div class="row"><b>HTTPS / Secure Context</b><span id="secure" class="state">…</span></div>
+  <div class="row"><b>Camera API</b><span id="cameraApi" class="state">…</span></div>
+  <div class="row"><b>WebXR API</b><span id="xrApi" class="state">…</span></div>
+  <div class="row"><b>Immersive AR</b><span id="immersive" class="state">…</span></div>
+  <div class="row"><b>Motion Sensor API</b><span id="motion" class="state">…</span></div>
+  <div class="row"><b>Three.js CDN</b><span id="cdn" class="state">…</span></div>
+</div>
+<button id="run">ขอสิทธิ์กล้อง + Motion แล้วทดสอบ</button>
+<pre id="log">พร้อมตรวจ…</pre>
+<div class="links"><a href="/">← กลับ Black Hole AR</a><a href="/?debug=1">เปิด AR + Debug HUD</a></div>
+</main>
 <script>
-const out=document.getElementById('out'), sum=document.getElementById('sum');
-const fails=[];
-function add(state,k,v){
-  const d=document.createElement('div');
-  d.className='row '+state;
-  d.innerHTML=`<b>${state==='ok'?'✓':state==='bad'?'✗':'!'}</b>
-    <span class="k">${k}</span><span class="v">${v??''}</span>`;
-  out.appendChild(d);
-  if(state==='bad') fails.push(k);
-}
-
-document.getElementById('go').addEventListener('click', run, {once:true});
-
-async function run(){
-  document.getElementById('go').textContent='กำลังตรวจ…';
-  out.innerHTML='';
-
-  /* 1. บริบทพื้นฐาน */
-  add('ok','ที่อยู่เว็บ', location.protocol+'//'+location.host);
-  add(isSecureContext?'ok':'bad','เปิดผ่าน https', isSecureContext?'ใช่':'ไม่ใช่ — กล้องจะใช้ไม่ได้');
-  add('ok','เบราว์เซอร์', navigator.userAgent.slice(0,60));
-  const iOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
-    (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-  const inApp=/FBAN|FBAV|Line|Instagram|Messenger/i.test(navigator.userAgent);
-  add(inApp?'bad':'ok','เปิดในเบราว์เซอร์จริง', inApp?'เปิดอยู่ในแอป (LINE/FB) — ให้กด “เปิดใน Safari/Chrome”':'ใช่');
-
-  /* 2. WebGL */
-  const gl=document.createElement('canvas').getContext('webgl2')||
-           document.createElement('canvas').getContext('webgl');
-  add(gl?'ok':'bad','WebGL', gl? (gl instanceof WebGL2RenderingContext?'WebGL2':'WebGL1') : 'ไม่รองรับ');
-
-  /* 3. ไฟล์วิดีโอเข้าถึงได้ไหม — ลองทั้ง root และโฟลเดอร์ video/ */
-  let VSRC=null;
-  for(const cand of ['tulip.mp4','video/tulip.mp4']){
-    try{
-      const r=await fetch(cand,{method:'GET',headers:{Range:'bytes=0-1023'}});
-      if(r.ok||r.status===206){ VSRC=cand;
-        add('ok','เจอไฟล์วิดีโอ', cand+' · HTTP '+r.status+' · '+(r.headers.get('content-type')||'?'));
-        break; }
-      add('warn','ลอง '+cand,'HTTP '+r.status);
-    }catch(e){ add('warn','ลอง '+cand, e.message); }
-  }
-  if(!VSRC) add('bad','ไฟล์วิดีโอ','หาไม่เจอทั้ง tulip.mp4 และ video/tulip.mp4 — ตรวจว่าอัปขึ้นครบและชื่อตรง');
-
-  /* 4. วิดีโอ decode ได้ไหม — ต้องอยู่ใน DOM ด้วย */
-  const v=document.createElement('video');
-  v.src = VSRC || 'tulip.mp4'; v.muted=true; v.loop=true; v.playsInline=true;
-  v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline','');
-  v.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none';
-  document.body.appendChild(v);
-
-  let playErr=null;
-  try{ await v.play(); }catch(e){ playErr=e; }
-  add(playErr?'bad':'ok','สั่งเล่นวิดีโอ', playErr? (playErr.name+': '+playErr.message) : 'สำเร็จ');
-
-  const gotData = await new Promise(res=>{
-    if(v.readyState>=2) return res(true);
-    const t=setTimeout(()=>res(false),8000);
-    v.addEventListener('loadeddata',()=>{clearTimeout(t);res(true)},{once:true});
-    v.addEventListener('error',()=>{clearTimeout(t);res(false)},{once:true});
-  });
-  add(gotData?'ok':'bad','วิดีโอมีข้อมูลภาพ',
-      gotData? `${v.videoWidth}×${v.videoHeight} · ${v.duration.toFixed(1)} วิ` : 'ไม่มาภายใน 8 วิ');
-
-  await new Promise(r=>setTimeout(r,900));
-  add(v.currentTime>0?'ok':'bad','วิดีโอเดินหน้าจริง','currentTime = '+v.currentTime.toFixed(2));
-
-  /* 5. ข้อมูล alpha อยู่ในเฟรมจริงไหม */
-  if(gotData && v.videoWidth){
-    const cv=document.getElementById('cv'), cx=cv.getContext('2d');
-    const W=v.videoWidth, H=v.videoHeight;
-    const t=document.createElement('canvas'); t.width=W; t.height=H;
-    const tx=t.getContext('2d',{willReadFrequently:true});
-    tx.drawImage(v,0,0,W,H);
-    let px;
-    try{ px=tx.getImageData(0,0,W,H).data; }catch(e){ px=null;
-      add('bad','อ่านพิกเซลจากวิดีโอ','ถูกบล็อก (CORS/tainted): '+e.message); }
-
-    if(px){
-      const at=(x,y)=>{const i=((y*W)+x)*4; return [px[i],px[i+1],px[i+2]];};
-      const halfH=H/2;
-      const cornerTop=at(4,4), cornerBot=at(4,halfH+4);
-      const midBot=at(W>>1, halfH+Math.floor(halfH*0.75));
-      add(H===1080&&W===960?'ok':'warn','ขนาดเฟรม alpha-packed',
-          `${W}×${H} ` + (H===1080&&W===960?'(ถูกต้อง)':'(คาดว่าควรเป็น 960×1080)'));
-      const bgDark = cornerTop[0]<12&&cornerTop[1]<12&&cornerTop[2]<12;
-      add(bgDark?'ok':'bad','ครึ่งบน = ภาพสี พื้นหลังดำ','มุมบนซ้าย rgb('+cornerTop.join(',')+')');
-      const alphaZero = cornerBot[0]<12;
-      add(alphaZero?'ok':'bad','ครึ่งล่าง = alpha พื้นหลังโปร่ง','มุมล่างซ้าย rgb('+cornerBot.join(',')+')');
-      const alphaSolid = midBot[0]>200;
-      add(alphaSolid?'ok':'warn','ครึ่งล่างมีบริเวณทึบ','กลางล่าง rgb('+midBot.join(',')+')');
-
-      // ประกอบภาพจริงตามสูตรเชเดอร์ วางบนตารางหมากรุก
-      cv.width=320; cv.height=180;
-      const src=tx.getImageData(0,0,W,halfH), alp=tx.getImageData(0,halfH,W,halfH);
-      const o=cx.createImageData(W,halfH);
-      for(let i=0;i<W*halfH;i++){
-        o.data[i*4]=src.data[i*4]; o.data[i*4+1]=src.data[i*4+1];
-        o.data[i*4+2]=src.data[i*4+2]; o.data[i*4+3]=alp.data[i*4];
-      }
-      const tmp=document.createElement('canvas'); tmp.width=W; tmp.height=halfH;
-      tmp.getContext('2d').putImageData(o,0,0);
-      cx.clearRect(0,0,320,180); cx.drawImage(tmp,0,0,320,180);
-      cv.classList.add('on');
-      document.getElementById('cap').textContent =
-        'ภาพนี้คือผลลัพธ์ที่เชเดอร์ควรวาดออกมา ถ้าเห็นดอกกระเจียวบนตารางหมากรุก แปลว่าไฟล์วิดีโอไม่มีปัญหา';
-    }
-  }
-
-  /* 6. กล้อง */
+const $=s=>document.querySelector(s), log=$('#log');
+const set=(id,text,ok)=>{const e=$(id);e.textContent=text;e.className='state '+(ok===true?'ok':ok===false?'bad':'')};
+set('#secure',isSecureContext?'PASS':'FAIL',isSecureContext);
+set('#cameraApi',navigator.mediaDevices?.getUserMedia?'PASS':'FAIL',!!navigator.mediaDevices?.getUserMedia);
+set('#xrApi',navigator.xr?'AVAILABLE':'NOT FOUND',!!navigator.xr);
+set('#motion',typeof DeviceOrientationEvent!=='undefined'?'AVAILABLE':'NOT FOUND',typeof DeviceOrientationEvent!=='undefined');
+(async()=>{
+  try{const ok=navigator.xr?await navigator.xr.isSessionSupported('immersive-ar'):false;set('#immersive',ok?'SUPPORTED':'FALLBACK',ok?true:null)}catch{set('#immersive','FALLBACK',null)}
+  try{const r=await fetch('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',{method:'HEAD',mode:'cors'});set('#cdn',r.ok?'PASS':'FAIL',r.ok)}catch{set('#cdn','FAIL',false)}
+})();
+$('#run').addEventListener('click',async()=>{
+  const lines=[];
   try{
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
-    const tr=s.getVideoTracks()[0], st=tr.getSettings();
-    add('ok','กล้องหลัง',`${st.width}×${st.height}`);
-    s.getTracks().forEach(t=>t.stop());
-  }catch(e){ add('bad','กล้องหลัง', e.name+': '+e.message); }
-
-  /* 7. เซ็นเซอร์การหมุน */
-  if(typeof DeviceOrientationEvent!=='undefined' && DeviceOrientationEvent.requestPermission){
-    let g='error'; try{ g=await DeviceOrientationEvent.requestPermission(); }catch(e){ g=e.name; }
-    add(g==='granted'?'ok':'bad','สิทธิ์เซ็นเซอร์การหมุน', g);
-  } else add('ok','สิทธิ์เซ็นเซอร์การหมุน','ไม่ต้องขอ');
-
-  const live=await new Promise(res=>{
-    let done=false;
-    const h=e=>{ if(e.alpha!=null&&!done){done=true;window.removeEventListener('deviceorientation',h);
-      res(`α${e.alpha.toFixed(0)} β${e.beta.toFixed(0)} γ${e.gamma.toFixed(0)}`);} };
-    addEventListener('deviceorientation',h);
-    setTimeout(()=>{ if(!done){done=true;window.removeEventListener('deviceorientation',h);res(null);} },2500);
-  });
-  add(live?'ok':'bad','เซ็นเซอร์ส่งค่าจริง', live||'ไม่มีค่าเข้ามาใน 2.5 วิ');
-
-  /* 8. WebXR */
-  let xr=false;
-  try{ xr = !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')); }catch(e){}
-  add(xr?'ok':'warn','WebXR (จับพื้นจริง)', xr?'รองรับ — จะใช้โหมดนี้':'ไม่รองรับ — จะใช้โหมดไจโรแทน (ปกติสำหรับ iPhone)');
-
-  /* สรุป */
-  v.pause(); v.remove();
-  document.getElementById('go').textContent='ตรวจเสร็จแล้ว';
-  sum.classList.add('on');
-  sum.innerHTML = fails.length
-    ? '<b>เจอปัญหา '+fails.length+' จุด</b><br>' + fails.map(f=>'· '+f).join('<br>') +
-      '<br><br>ส่งภาพหน้าจอนี้มาได้เลย'
-    : '<b>ผ่านทุกข้อ</b><br>ถ้ายังไม่เห็นวัตถุ แปลว่าปัญหาอยู่ที่การวางตำแหน่งหรือขนาด ไม่ใช่ที่ไฟล์หรือสิทธิ์ ส่งภาพหน้าจอนี้มาได้เลย';
-}
+    if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission){
+      const p=await DeviceOrientationEvent.requestPermission();lines.push('Motion permission: '+p);
+    }else lines.push('Motion permission: not required / unavailable');
+  }catch(e){lines.push('Motion permission error: '+e.name+' '+e.message)}
+  let stream;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    const track=stream.getVideoTracks()[0];lines.push('Camera: PASS');lines.push('Camera label: '+(track.label||'(hidden)'));lines.push('Camera settings: '+JSON.stringify(track.getSettings?.()||{}));
+  }catch(e){lines.push('Camera: FAIL '+e.name+' '+e.message)}finally{stream?.getTracks().forEach(t=>t.stop())}
+  lines.push('User agent: '+navigator.userAgent);
+  log.textContent=lines.join('\n');
+});
 </script>
-</body>
-</html>
+</body></html>
