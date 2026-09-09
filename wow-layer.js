@@ -24,8 +24,6 @@ document.body.appendChild(wow);
 
 const title = $('#wowTitle');
 const text = $('#wowText');
-const shockwave = wow.querySelector('.wow-shockwave');
-const flash = wow.querySelector('.wow-flash');
 
 let lastLevel = -1;
 let burstLocked = false;
@@ -54,6 +52,25 @@ function setCaption(level) {
   wow.classList.toggle('caption-show', level >= 2);
 }
 
+function resetWow() {
+  placed = false;
+  wow.classList.remove('active', 'danger', 'caption-show', 'burst', 'manual-pulse');
+  document.documentElement.style.setProperty('--wow-gravity', '0');
+  lastLevel = -1;
+}
+
+function syncPlacement() {
+  const nowPlaced = !!pulseBtn && !pulseBtn.hidden;
+  if (nowPlaced === placed) return;
+  placed = nowPlaced;
+  if (placed) {
+    wow.classList.add('active');
+    setCaption(levelFor(gravity));
+  } else {
+    resetWow();
+  }
+}
+
 function burst() {
   if (burstLocked || !placed) return;
   burstLocked = true;
@@ -70,7 +87,7 @@ function applyGravity(v) {
   const g = gravity / 100;
   document.documentElement.style.setProperty('--wow-gravity', g.toFixed(3));
   wow.classList.toggle('active', placed);
-  wow.classList.toggle('danger', gravity >= 78);
+  wow.classList.toggle('danger', placed && gravity >= 78);
 
   const level = levelFor(gravity);
   if (level !== lastLevel) {
@@ -82,6 +99,7 @@ function applyGravity(v) {
 
 function readMeter() {
   if (!meterValue) return;
+  syncPlacement();
   const v = Number((meterValue.textContent || '0').replace(/[^0-9.]/g, '')) || 0;
   applyGravity(v);
 }
@@ -91,18 +109,15 @@ if (meterValue) {
   readMeter();
 }
 
-placeBtn?.addEventListener('click', () => {
-  placed = true;
-  wow.classList.add('active');
-  setCaption(levelFor(gravity));
-});
+if (pulseBtn) {
+  new MutationObserver(syncPlacement).observe(pulseBtn, { attributes: true, attributeFilter: ['hidden'] });
+}
+if (placeBtn) {
+  new MutationObserver(syncPlacement).observe(placeBtn, { attributes: true, attributeFilter: ['hidden'] });
+}
 
-moveBtn?.addEventListener('click', () => {
-  placed = false;
-  wow.classList.remove('active', 'danger', 'caption-show', 'burst');
-  document.documentElement.style.setProperty('--wow-gravity', '0');
-  lastLevel = -1;
-});
+placeBtn?.addEventListener('click', () => setTimeout(syncPlacement, 0));
+moveBtn?.addEventListener('click', () => setTimeout(syncPlacement, 0));
 
 pulseBtn?.addEventListener('click', () => {
   wow.classList.add('manual-pulse');
@@ -110,7 +125,7 @@ pulseBtn?.addEventListener('click', () => {
 });
 
 ar?.addEventListener('transitionend', () => {
-  if (!ar.classList.contains('on')) wow.classList.remove('active');
+  if (!ar.classList.contains('on')) resetWow();
 });
 
 // Lightweight ambient streak field: DOM only, no extra WebGL context.
