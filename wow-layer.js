@@ -5,7 +5,13 @@ const meterValue = $('#meterValue');
 const pulseBtn = $('#pulseBtn');
 const placeBtn = $('#placeBtn');
 const moveBtn = $('#moveBtn');
+const gravityFact = document.querySelector('.gravity-fact');
 
+/*
+ * Cinematic overlay deliberately contains NO text in the middle of the camera.
+ * Story copy lives inside the existing gravity card at the top of the screen,
+ * leaving the black hole / Event Horizon unobstructed.
+ */
 const wow = document.createElement('div');
 wow.id = 'wowLayer';
 wow.innerHTML = `
@@ -14,21 +20,49 @@ wow.innerHTML = `
   <div class="wow-streaks" aria-hidden="true"></div>
   <div class="wow-shockwave" aria-hidden="true"></div>
   <div class="wow-flash" aria-hidden="true"></div>
-  <div class="wow-caption" role="status" aria-live="polite">
-    <span class="wow-kicker">EXTREME GRAVITY</span>
-    <strong id="wowTitle">แรงโน้มถ่วงกำลังเพิ่มขึ้น</strong>
-    <small id="wowText">สังเกตแสงและอนุภาครอบหลุมดำ</small>
-  </div>
 `;
 document.body.appendChild(wow);
 
-const title = $('#wowTitle');
-const text = $('#wowText');
+if (gravityFact) {
+  gravityFact.innerHTML = `
+    <span class="story-step" id="storyStep">01 / 07</span>
+    <strong id="storyTitle">หลุมดำอยู่ตรงหน้า</strong>
+    <span class="story-copy" id="storyText">เริ่มสำรวจสนามแรงโน้มถ่วงรอบหลุมดำ</span>
+    <span class="story-progress" aria-hidden="true"><i id="storyProgress"></i></span>
+  `;
+}
+
+const storyStep = $('#storyStep');
+const storyTitle = $('#storyTitle');
+const storyText = $('#storyText');
+const storyProgress = $('#storyProgress');
 
 let lastLevel = -1;
 let burstLocked = false;
 let placed = false;
 let gravity = 0;
+let storyStart = 0;
+let storyIndex = -1;
+let nextAutoBoostAt = 0;
+let userOverrideUntil = 0;
+
+const REDUCED_MOTION = matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || false;
+const STORY_DURATION = 32000;
+
+/*
+ * 32-second loop. Copy stays intentionally short for an exhibition visitor.
+ * boost controls the existing AR gravity engine through its normal pointer
+ * interaction path, so the black hole itself participates in the loop.
+ */
+const STORY = [
+  { start: 0,     title: 'หลุมดำอยู่ตรงหน้า',          text: 'เริ่มสำรวจสนามแรงโน้มถ่วงรอบหลุมดำ',                    boost: 'none' },
+  { start: 4000,  title: 'สสารเริ่มเข้าสู่วงโคจร',     text: 'ก๊าซและฝุ่นหมุนรอบหลุมดำด้วยความเร็วสูง',                 boost: 'soft' },
+  { start: 9000,  title: 'จานสะสมมวลร้อนขึ้น',         text: 'สสารเคลื่อนที่เร็วและปล่อยพลังงานออกมา',                  boost: 'medium' },
+  { start: 14000, title: 'แสงเริ่มเบนโค้ง',            text: 'แรงโน้มถ่วงรุนแรงบิดเส้นทางของแสงรอบหลุมดำ',              boost: 'medium' },
+  { start: 19000, title: 'เข้าใกล้ขอบฟ้าเหตุการณ์',    text: 'ขอบเขตสำคัญรอบหลุมดำกำลังอยู่ตรงหน้า',                    boost: 'high' },
+  { start: 24000, title: 'EVENT HORIZON',              text: 'เมื่อผ่านขอบนี้ แม้แต่แสงก็ไม่สามารถกลับออกมาได้',          boost: 'event' },
+  { start: 27000, title: 'สนามแรงโน้มถ่วงค่อย ๆ สงบ', text: 'วงจรการสำรวจจะเริ่มต้นใหม่อีกครั้ง',                       boost: 'none' }
+];
 
 function levelFor(v) {
   if (v >= 96) return 4;
@@ -38,25 +72,15 @@ function levelFor(v) {
   return 0;
 }
 
-function setCaption(level) {
-  if (!placed) return;
-  const copy = [
-    ['สนามแรงโน้มถ่วงเริ่มทำงาน', 'เข้าใกล้หลุมดำหรือแตะเร่งแรงดูด'],
-    ['แสงเริ่มถูกบิด', 'สนามแรงโน้มถ่วงเข้มขึ้นรอบหลุมดำ'],
-    ['การโคจรเร็วขึ้น', 'อนุภาคกำลังสูญเสียวงโคจรที่เสถียร'],
-    ['เข้าใกล้ขอบฟ้าเหตุการณ์', 'ระวัง — แรงโน้มถ่วงอยู่ในระดับสูงมาก'],
-    ['EVENT HORIZON', 'คุณกำลังจำลองสภาวะแรงโน้มถ่วงสุดขั้ว']
-  ][level];
-  title.textContent = copy[0];
-  text.textContent = copy[1];
-  wow.classList.toggle('caption-show', level >= 2);
-}
-
 function resetWow() {
   placed = false;
-  wow.classList.remove('active', 'danger', 'caption-show', 'burst', 'manual-pulse');
+  storyStart = 0;
+  storyIndex = -1;
+  nextAutoBoostAt = 0;
+  wow.classList.remove('active', 'danger', 'burst', 'manual-pulse');
   applyVisualVars(0);
   lastLevel = -1;
+  if (storyProgress) storyProgress.style.transform = 'scaleX(0)';
 }
 
 function syncPlacement() {
@@ -65,7 +89,10 @@ function syncPlacement() {
   placed = nowPlaced;
   if (placed) {
     wow.classList.add('active');
-    setCaption(levelFor(gravity));
+    storyStart = performance.now();
+    storyIndex = -1;
+    nextAutoBoostAt = 0;
+    updateStory(performance.now(), true);
   } else {
     resetWow();
   }
@@ -108,10 +135,7 @@ function applyGravity(v) {
   wow.classList.toggle('danger', placed && gravity >= 78);
 
   const level = levelFor(gravity);
-  if (level !== lastLevel) {
-    setCaption(level);
-    lastLevel = level;
-  }
+  if (level !== lastLevel) lastLevel = level;
   if (gravity >= 97) burst();
 }
 
@@ -120,6 +144,71 @@ function readMeter() {
   syncPlacement();
   const v = Number((meterValue.textContent || '0').replace(/[^0-9.]/g, '')) || 0;
   applyGravity(v);
+}
+
+function phaseAt(elapsed) {
+  let idx = STORY.length - 1;
+  for (let i = 0; i < STORY.length; i++) {
+    if (elapsed < STORY[i].start) break;
+    idx = i;
+  }
+  return idx;
+}
+
+function showStoryPhase(idx) {
+  const item = STORY[idx];
+  if (!item) return;
+  if (storyStep) storyStep.textContent = `${String(idx + 1).padStart(2, '0')} / ${String(STORY.length).padStart(2, '0')}`;
+  if (storyTitle) storyTitle.textContent = item.title;
+  if (storyText) storyText.textContent = item.text;
+  gravityFact?.classList.toggle('story-event', item.boost === 'event');
+}
+
+function syntheticPointer(type, buttons = 0) {
+  try {
+    document.body.dispatchEvent(new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      pointerType: 'touch',
+      buttons
+    }));
+  } catch {
+    /* Old Safari: visual narration still loops even if synthetic pointer is unavailable. */
+  }
+}
+
+function autoBoost(mode, now) {
+  if (REDUCED_MOTION || now < userOverrideUntil || mode === 'none') return;
+  if (now < nextAutoBoostAt) return;
+
+  if (mode === 'soft') {
+    syntheticPointer('pointerdown', 1);          // existing engine caps this at a medium boost
+    nextAutoBoostAt = now + 1700;
+  } else if (mode === 'medium') {
+    syntheticPointer('pointerdown', 1);
+    nextAutoBoostAt = now + 900;
+  } else if (mode === 'high') {
+    syntheticPointer('pointermove', 1);          // existing engine sets boost to 1
+    nextAutoBoostAt = now + 420;
+  } else if (mode === 'event') {
+    syntheticPointer('pointermove', 1);
+    nextAutoBoostAt = now + 120;                 // hold near maximum long enough to reach Event Horizon
+  }
+}
+
+function updateStory(now, force = false) {
+  if (!placed || !storyStart) return;
+  const elapsed = (now - storyStart) % STORY_DURATION;
+  const idx = phaseAt(elapsed);
+
+  if (force || idx !== storyIndex) {
+    storyIndex = idx;
+    nextAutoBoostAt = 0;
+    showStoryPhase(idx);
+  }
+
+  if (storyProgress) storyProgress.style.transform = `scaleX(${(elapsed / STORY_DURATION).toFixed(4)})`;
+  autoBoost(STORY[idx].boost, now);
 }
 
 if (meterValue) {
@@ -137,7 +226,16 @@ if (placeBtn) {
 placeBtn?.addEventListener('click', () => setTimeout(syncPlacement, 0));
 moveBtn?.addEventListener('click', () => setTimeout(syncPlacement, 0));
 
-pulseBtn?.addEventListener('click', () => {
+/* Real visitor interaction temporarily takes priority over the automatic drive. */
+addEventListener('pointerdown', (e) => {
+  if (e.isTrusted && placed) userOverrideUntil = performance.now() + 3500;
+}, true);
+addEventListener('touchstart', (e) => {
+  if (e.isTrusted && placed) userOverrideUntil = performance.now() + 3500;
+}, { capture: true, passive: true });
+
+pulseBtn?.addEventListener('click', (e) => {
+  if (e.isTrusted) userOverrideUntil = performance.now() + 3500;
   wow.classList.add('manual-pulse');
   setTimeout(() => wow.classList.remove('manual-pulse'), 520);
 });
@@ -146,7 +244,7 @@ ar?.addEventListener('transitionend', () => {
   if (!ar.classList.contains('on')) resetWow();
 });
 
-// Lightweight ambient streak field: DOM only, no extra WebGL context.
+/* Lightweight ambient streak field: DOM only, no extra WebGL context. */
 const streaks = wow.querySelector('.wow-streaks');
 for (let i = 0; i < 28; i++) {
   const s = document.createElement('i');
@@ -157,3 +255,6 @@ for (let i = 0; i < 28; i++) {
   s.style.setProperty('--o', `${0.18 + Math.random() * 0.62}`);
   streaks.appendChild(s);
 }
+
+/* Narrative timing is cheap; 8 fps is enough for exhibition copy/progress. */
+setInterval(() => updateStory(performance.now()), 125);
