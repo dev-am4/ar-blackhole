@@ -47,21 +47,21 @@ let nextAutoBoostAt = 0;
 let userOverrideUntil = 0;
 
 const REDUCED_MOTION = matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || false;
-const STORY_DURATION = 32000;
+const STORY_DURATION = 24000;
 
 /*
- * 32-second loop. Copy stays intentionally short for an exhibition visitor.
- * boost controls the existing AR gravity engine through its normal pointer
- * interaction path, so the black hole itself participates in the loop.
+ * One complete 24-second narration cycle, matching blackhole_24s.webp.
+ * The visitor can still interact at any time; trusted input temporarily wins
+ * over the automatic gravity drive.
  */
 const STORY = [
   { start: 0,     title: 'หลุมดำอยู่ตรงหน้า',          text: 'เริ่มสำรวจสนามแรงโน้มถ่วงรอบหลุมดำ',                    boost: 'none' },
-  { start: 4000,  title: 'สสารเริ่มเข้าสู่วงโคจร',     text: 'ก๊าซและฝุ่นหมุนรอบหลุมดำด้วยความเร็วสูง',                 boost: 'soft' },
-  { start: 9000,  title: 'จานสะสมมวลร้อนขึ้น',         text: 'สสารเคลื่อนที่เร็วและปล่อยพลังงานออกมา',                  boost: 'medium' },
-  { start: 14000, title: 'แสงเริ่มเบนโค้ง',            text: 'แรงโน้มถ่วงรุนแรงบิดเส้นทางของแสงรอบหลุมดำ',              boost: 'medium' },
-  { start: 19000, title: 'เข้าใกล้ขอบฟ้าเหตุการณ์',    text: 'ขอบเขตสำคัญรอบหลุมดำกำลังอยู่ตรงหน้า',                    boost: 'high' },
-  { start: 24000, title: 'EVENT HORIZON',              text: 'เมื่อผ่านขอบนี้ แม้แต่แสงก็ไม่สามารถกลับออกมาได้',          boost: 'event' },
-  { start: 27000, title: 'สนามแรงโน้มถ่วงค่อย ๆ สงบ', text: 'วงจรการสำรวจจะเริ่มต้นใหม่อีกครั้ง',                       boost: 'none' }
+  { start: 3000,  title: 'สสารเข้าสู่วงโคจร',          text: 'ก๊าซและฝุ่นเริ่มหมุนรอบหลุมดำด้วยความเร็วสูง',             boost: 'soft' },
+  { start: 6500,  title: 'จานสะสมมวลร้อนขึ้น',         text: 'การเสียดสีทำให้สสารร้อนและส่องสว่างมากขึ้น',              boost: 'medium' },
+  { start: 10000, title: 'แสงเริ่มเบนโค้ง',            text: 'แรงโน้มถ่วงบิดเส้นทางของแสงรอบหลุมดำ',                    boost: 'medium' },
+  { start: 13500, title: 'เข้าใกล้ขอบฟ้าเหตุการณ์',    text: 'สนามแรงโน้มถ่วงกำลังเข้าสู่ระดับสุดขั้ว',                  boost: 'high' },
+  { start: 17000, title: 'EVENT HORIZON',              text: 'เมื่อผ่านขอบนี้ แม้แต่แสงก็ไม่สามารถกลับออกมาได้',          boost: 'event' },
+  { start: 21000, title: 'สนามค่อย ๆ สงบลง',           text: 'อีกไม่กี่วินาที การสำรวจจะเริ่มต้นใหม่อีกครั้ง',            boost: 'none' }
 ];
 
 function levelFor(v) {
@@ -81,6 +81,7 @@ function resetWow() {
   applyVisualVars(0);
   lastLevel = -1;
   if (storyProgress) storyProgress.style.transform = 'scaleX(0)';
+  window.dispatchEvent(new CustomEvent('blackhole-story-reset'));
 }
 
 function syncPlacement() {
@@ -92,6 +93,7 @@ function syncPlacement() {
     storyStart = performance.now();
     storyIndex = -1;
     nextAutoBoostAt = 0;
+    window.dispatchEvent(new CustomEvent('blackhole-story-start'));
     updateStory(performance.now(), true);
   } else {
     resetWow();
@@ -162,6 +164,7 @@ function showStoryPhase(idx) {
   if (storyTitle) storyTitle.textContent = item.title;
   if (storyText) storyText.textContent = item.text;
   gravityFact?.classList.toggle('story-event', item.boost === 'event');
+  window.dispatchEvent(new CustomEvent('blackhole-story-phase', { detail: { index: idx, elapsed: item.start } }));
 }
 
 function syntheticPointer(type, buttons = 0) {
@@ -173,7 +176,7 @@ function syntheticPointer(type, buttons = 0) {
       buttons
     }));
   } catch {
-    /* Old Safari: visual narration still loops even if synthetic pointer is unavailable. */
+    /* Old Safari: narration still loops even if synthetic pointer is unavailable. */
   }
 }
 
@@ -182,17 +185,17 @@ function autoBoost(mode, now) {
   if (now < nextAutoBoostAt) return;
 
   if (mode === 'soft') {
-    syntheticPointer('pointerdown', 1);          // existing engine caps this at a medium boost
-    nextAutoBoostAt = now + 1700;
+    syntheticPointer('pointerdown', 1);
+    nextAutoBoostAt = now + 1400;
   } else if (mode === 'medium') {
     syntheticPointer('pointerdown', 1);
-    nextAutoBoostAt = now + 900;
+    nextAutoBoostAt = now + 750;
   } else if (mode === 'high') {
-    syntheticPointer('pointermove', 1);          // existing engine sets boost to 1
-    nextAutoBoostAt = now + 420;
+    syntheticPointer('pointermove', 1);
+    nextAutoBoostAt = now + 340;
   } else if (mode === 'event') {
     syntheticPointer('pointermove', 1);
-    nextAutoBoostAt = now + 120;                 // hold near maximum long enough to reach Event Horizon
+    nextAutoBoostAt = now + 100;
   }
 }
 
