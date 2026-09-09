@@ -1,0 +1,33 @@
+#cinematicBlackHole{
+  position:fixed;
+  z-index:33;
+  left:50%;
+  top:55%;
+  width:min(78vw,520px);
+  height:auto;
+  transform:translate(-50%,-50%) scale(.96);
+  transform-origin:center center;
+  opacity:0;
+  pointer-events:none;
+  user-select:none;
+  -webkit-user-drag:none;
+  mix-blend-mode:screen;
+  filter:saturate(1.08) contrast(1.08) drop-shadow(0 0 18px rgba(255,150,66,.18));
+  transition:opacity .45s ease,transform .45s ease,filter .25s linear;
+}
+#cinematicBlackHole.on{
+  opacity:.92;
+  transform:translate(-50%,-50%) scale(1);
+}
+#cinematicBlackHole.event{
+  filter:saturate(1.28) contrast(1.15) brightness(1.08) drop-shadow(0 0 28px rgba(255,139,61,.32));
+}
+#cinematicBlackHole.cooldown{
+  opacity:.72;
+}
+@media(max-width:430px){
+  #cinematicBlackHole{width:min(86vw,400px);top:56%}
+}
+@media(prefers-reduced-motion:reduce){
+  #cinematicBlackHole{transition:none}
+}
