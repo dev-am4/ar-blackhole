@@ -1,0 +1,45 @@
+{
+  "rewrites": [
+    { "source": "/p1", "destination": "/fast.html" },
+    { "source": "/p2", "destination": "/fast.html" },
+    { "source": "/p3", "destination": "/fast.html" }
+  ],
+  "headers": [
+    {
+      "source": "/p1",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/p2",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/p3",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/fast.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/(.*).mp4",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=2592000" }
+      ]
+    },
+    {
+      "source": "/thumbs/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=2592000" }
+      ]
+    }
+  ]
+}
