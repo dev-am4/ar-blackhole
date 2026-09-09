@@ -497,14 +497,23 @@ function renderXR(now, frame) {
   renderer.render(scene, camera);
 }
 
-async function startXR() {
+function requestXRSession() {
+  if (!navigator.xr) return Promise.resolve(null);
+  try {
+    return navigator.xr.requestSession('immersive-ar', {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay'],
+      domOverlay: { root: arUI }
+    }).catch(() => null);
+  } catch {
+    return Promise.resolve(null);
+  }
+}
+
+async function startXR(session) {
   mode = 'xr';
   renderer.xr.enabled = true;
-  xrSession = await navigator.xr.requestSession('immersive-ar', {
-    requiredFeatures: ['hit-test'],
-    optionalFeatures: ['dom-overlay'],
-    domOverlay: { root: arUI }
-  });
+  xrSession = session;
   renderer.xr.setReferenceSpaceType('local');
   await renderer.xr.setSession(xrSession);
   const viewer = await xrSession.requestReferenceSpace('viewer');
@@ -554,6 +563,7 @@ async function launch() {
   launching = true;
   audio = initAudio();
   const orientationPromise = requestOrientation();
+  const xrSessionPromise = requestXRSession();
   startBtn.disabled = true;
   startBtn.textContent = 'กำลังเปิดกล้อง…';
 
@@ -567,9 +577,9 @@ async function launch() {
     arUI.classList.add('on');
     setStatus('กำลังตรวจ AR', false);
 
-    const xrOK = !!navigator.xr && await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
-    if (xrOK) {
-      await startXR();
+    const session = await xrSessionPromise;
+    if (session) {
+      await startXR(session);
     } else {
       const orientation = await orientationPromise;
       await startFallback(orientation);
