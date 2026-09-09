@@ -1,24 +1,53 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
 /*
- * Keeps the 24s cinematic layer visually attached to the procedural black hole
- * without changing the AR placement core. This module patches the shared
- * Three.js renderer before blackhole.js creates its renderer.
+ * Cinematic replacement layer.
+ * The generated 24s WebP is the PRIMARY black-hole appearance.
+ * Legacy procedural core/disk/halo/lens are hidden; only interactive particles remain.
+ * We still use the old core transform as an invisible world-space anchor.
  */
 const originalRender = THREE.WebGLRenderer.prototype.render;
 const ndc = new THREE.Vector3();
 const coreWorld = new THREE.Vector3();
 const cameraWorld = new THREE.Vector3();
 let cachedBlackHole = null;
+let legacyDisabled = false;
+
+function makeCinematicPrimary(hole) {
+  if (!hole?.userData || legacyDisabled) return;
+  const { core, halo, disk, particles, lens } = hole.userData;
+
+  // These generated/procedural objects created the old look. Keep them only as
+  // hidden transforms so tracking/gravity math in blackhole.js stays untouched.
+  if (core) core.visible = false;
+  if (halo) halo.visible = false;
+  if (disk) disk.visible = false;
+  if (lens) lens.visible = false;
+
+  // Preserve real-time motion around the new cinematic black hole.
+  if (particles) {
+    particles.visible = true;
+    particles.material.opacity = 1;
+  }
+
+  legacyDisabled = true;
+  document.documentElement.dataset.bhCinematicPrimary = '1';
+}
 
 function findBlackHole(scene) {
-  if (cachedBlackHole?.parent) return cachedBlackHole;
+  if (cachedBlackHole?.parent) {
+    makeCinematicPrimary(cachedBlackHole);
+    return cachedBlackHole;
+  }
+
   cachedBlackHole = null;
   scene?.traverse?.((obj) => {
     if (cachedBlackHole) return;
     const u = obj.userData;
     if (u?.core && u?.disk && u?.particles && u?.lens) cachedBlackHole = obj;
   });
+
+  if (cachedBlackHole) makeCinematicPrimary(cachedBlackHole);
   return cachedBlackHole;
 }
 
@@ -37,6 +66,7 @@ function updateAnchor(renderer, scene, camera) {
     viewCamera = xrCamera?.cameras?.[0] || xrCamera || camera;
   }
 
+  // core remains a valid transform even though it is visually hidden.
   hole.userData.core.getWorldPosition(coreWorld);
   viewCamera.getWorldPosition(cameraWorld);
   ndc.copy(coreWorld).project(viewCamera);
@@ -52,9 +82,9 @@ function updateAnchor(renderer, scene, camera) {
   const distance = Math.max(0.35, cameraWorld.distanceTo(coreWorld));
   const fov = Number.isFinite(viewCamera.fov) ? viewCamera.fov : 62;
   const focalPx = innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(fov) * 0.5));
-  const worldDiameter = 1.78 * Math.max(0.55, hole.scale.x || 1);
+  const worldDiameter = 1.95 * Math.max(0.55, hole.scale.x || 1);
   const projected = focalPx * worldDiameter / distance;
-  const size = THREE.MathUtils.clamp(projected, 150, Math.min(innerWidth * 0.82, innerHeight * 0.72));
+  const size = THREE.MathUtils.clamp(projected, 165, Math.min(innerWidth * 0.88, innerHeight * 0.78));
 
   const style = root.style;
   style.setProperty('--bh-x', `${x.toFixed(1)}px`);
@@ -64,6 +94,6 @@ function updateAnchor(renderer, scene, camera) {
 }
 
 THREE.WebGLRenderer.prototype.render = function patchedBlackHoleRender(scene, camera) {
-  try { updateAnchor(this, scene, camera); } catch { /* visual enhancement only */ }
+  try { updateAnchor(this, scene, camera); } catch { /* enhancement only */ }
   return originalRender.call(this, scene, camera);
 };
