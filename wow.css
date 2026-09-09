@@ -13,15 +13,32 @@
   --wow-streak-scale:.3;
   --wow-blue-a:0;
   --wow-red-a:0;
+  --bh-screen-x:50vw;
+  --bh-screen-y:53vh;
 }
 
-#wowLayer{position:fixed;inset:0;z-index:34;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .35s ease}
+/* Keep cinematic effects above the camera/WebGL but below the AR UI. */
+#wowLayer{position:fixed;inset:0;z-index:28;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .35s ease}
 #wowLayer.active{opacity:1}
 .wow-vignette,.wow-lens,.wow-streaks,.wow-shockwave,.wow-flash{position:absolute;inset:0;pointer-events:none}
-.wow-vignette{background:radial-gradient(circle at 50% 52%,transparent 0 28%,rgba(7,5,18,var(--wow-mid-a)) 48%,rgba(0,0,6,var(--wow-vignette-a)) 100%);box-shadow:inset 0 0 calc(35px + var(--wow-shadow-blur)) rgba(45,24,94,var(--wow-shadow-a));transition:background .12s linear,box-shadow .12s linear}
-.wow-lens{inset:-12%;opacity:var(--wow-lens-opacity);background:repeating-radial-gradient(ellipse at 50% 53%,transparent 0 8%,rgba(147,113,255,.018) 8.3%,transparent 8.8% 13%);filter:blur(var(--wow-lens-blur)) saturate(var(--wow-saturate));transform:scale(var(--wow-lens-scale));mix-blend-mode:screen;transition:opacity .12s linear,transform .12s linear,filter .12s linear}
-.wow-streaks{opacity:var(--wow-streak-opacity);filter:drop-shadow(0 0 4px rgba(160,178,255,.65));transition:opacity .15s linear}
-.wow-streaks i{position:absolute;left:var(--x);top:var(--y);width:clamp(8px,calc(6px + var(--wow-streak-width)),38px);height:1px;border-radius:999px;background:linear-gradient(90deg,transparent,rgba(255,255,255,var(--o)));transform:rotate(var(--r)) scaleX(var(--wow-streak-scale));transform-origin:0 50%;animation:wowStreak var(--d) linear infinite;opacity:var(--o)}
+
+/* All radial effects originate from the actual world-space black-hole position. */
+.wow-vignette{
+  background:radial-gradient(circle at var(--bh-screen-x) var(--bh-screen-y),transparent 0 24%,rgba(7,5,18,var(--wow-mid-a)) 47%,rgba(0,0,6,var(--wow-vignette-a)) 100%);
+  box-shadow:inset 0 0 calc(35px + var(--wow-shadow-blur)) rgba(27,20,64,var(--wow-shadow-a));
+  transition:background .12s linear,box-shadow .12s linear
+}
+.wow-lens{
+  inset:-12%;
+  opacity:var(--wow-lens-opacity);
+  background:repeating-radial-gradient(ellipse at var(--bh-screen-x) var(--bh-screen-y),transparent 0 8%,rgba(171,194,255,.016) 8.25%,transparent 8.8% 13%);
+  filter:blur(var(--wow-lens-blur)) saturate(var(--wow-saturate));
+  transform:scale(var(--wow-lens-scale));
+  mix-blend-mode:screen;
+  transition:opacity .12s linear,transform .12s linear,filter .12s linear
+}
+.wow-streaks{opacity:calc(var(--wow-streak-opacity) * .62);filter:drop-shadow(0 0 3px rgba(178,192,255,.46));transition:opacity .15s linear}
+.wow-streaks i{position:absolute;left:var(--x);top:var(--y);width:clamp(6px,calc(5px + var(--wow-streak-width)),30px);height:1px;border-radius:999px;background:linear-gradient(90deg,transparent,rgba(255,255,255,var(--o)));transform:rotate(var(--r)) scaleX(var(--wow-streak-scale));transform-origin:0 50%;animation:wowStreak var(--d) linear infinite;opacity:var(--o)}
 
 /* Story lives only inside the existing top gravity card — never in the camera center. */
 .gravity-card{transition:border-color .25s ease,background .25s ease,box-shadow .25s ease}
@@ -35,17 +52,47 @@
 .gravity-fact.story-event strong{color:#fff0df;text-shadow:0 0 16px rgba(255,118,56,.28)}
 #ar:has(+ #wowLayer.danger) .gravity-card,#wowLayer.danger~#ar .gravity-card{border-color:rgba(255,121,72,.42)}
 
-.wow-shockwave{left:50%;top:53%;right:auto;bottom:auto;width:10vmin;height:10vmin;border:2px solid rgba(255,244,218,.95);border-radius:50%;transform:translate(-50%,-50%) scale(.1);opacity:0;box-shadow:0 0 18px rgba(255,185,100,.85),0 0 50px rgba(125,96,255,.6)}
-.wow-flash{background:radial-gradient(circle at 50% 53%,rgba(255,250,230,.82),rgba(255,126,51,.18) 24%,rgba(117,73,255,.11) 42%,transparent 68%);opacity:0;mix-blend-mode:screen}
-#wowLayer.burst .wow-shockwave{animation:wowShock 1.05s cubic-bezier(.08,.64,.2,1) forwards}
-#wowLayer.burst .wow-flash{animation:wowFlash .72s ease-out forwards}
+/* Localized gravitational pulse instead of a generic full-screen explosion. */
+.wow-shockwave{
+  left:var(--bh-screen-x);
+  top:var(--bh-screen-y);
+  right:auto;
+  bottom:auto;
+  width:8vmin;
+  height:8vmin;
+  border:1.5px solid rgba(255,244,218,.92);
+  border-radius:50%;
+  transform:translate(-50%,-50%) scale(.1);
+  opacity:0;
+  box-shadow:0 0 14px rgba(255,190,112,.68),0 0 34px rgba(122,128,255,.34)
+}
+.wow-shockwave::after{
+  content:"";
+  position:absolute;
+  inset:-1px;
+  border:1px solid rgba(176,207,255,.66);
+  border-radius:50%;
+  opacity:0
+}
+.wow-flash{
+  background:radial-gradient(circle at var(--bh-screen-x) var(--bh-screen-y),rgba(255,250,230,.60),rgba(255,142,68,.16) 16%,rgba(104,113,255,.075) 31%,transparent 55%);
+  opacity:0;
+  mix-blend-mode:screen
+}
+#wowLayer.burst .wow-shockwave{animation:wowShock .96s cubic-bezier(.08,.64,.2,1) forwards}
+#wowLayer.burst .wow-shockwave::after{animation:wowShockEcho 1.08s .08s cubic-bezier(.08,.64,.2,1) forwards}
+#wowLayer.burst .wow-flash{animation:wowFlash .66s ease-out forwards}
 #wowLayer.manual-pulse .wow-lens{animation:wowLensPulse .5s ease-out}
 #wowLayer.active::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(64,144,255,var(--wow-blue-a)),transparent 36%,rgba(255,75,42,var(--wow-red-a)));mix-blend-mode:screen}
 
-@keyframes wowStreak{0%{translate:0 0;opacity:.1}45%{opacity:1}100%{translate:12px -8px;opacity:.15}}
-@keyframes wowShock{0%{transform:translate(-50%,-50%) scale(.08);opacity:1;border-width:3px}70%{opacity:.7}100%{transform:translate(-50%,-50%) scale(16);opacity:0;border-width:.4px}}
-@keyframes wowFlash{0%{opacity:0}12%{opacity:.98}32%{opacity:.36}100%{opacity:0}}
-@keyframes wowLensPulse{0%{transform:scale(1);filter:blur(0)}45%{transform:scale(1.035);filter:blur(1.4px)}100%{transform:scale(1);filter:blur(0)}}
+html[data-bh-screen-visible="0"] .wow-shockwave,
+html[data-bh-screen-visible="0"] .wow-flash{opacity:0!important}
+
+@keyframes wowStreak{0%{translate:0 0;opacity:.08}45%{opacity:.72}100%{translate:9px -6px;opacity:.08}}
+@keyframes wowShock{0%{transform:translate(-50%,-50%) scale(.08);opacity:.95;border-width:2px}68%{opacity:.52}100%{transform:translate(-50%,-50%) scale(9);opacity:0;border-width:.35px}}
+@keyframes wowShockEcho{0%{transform:scale(.15);opacity:.72}70%{opacity:.28}100%{transform:scale(7.4);opacity:0}}
+@keyframes wowFlash{0%{opacity:0}12%{opacity:.72}32%{opacity:.24}100%{opacity:0}}
+@keyframes wowLensPulse{0%{transform:scale(1);filter:blur(0)}45%{transform:scale(1.025);filter:blur(1.1px)}100%{transform:scale(1);filter:blur(0)}}
 
 @media(max-width:430px){
   .gravity-card{width:min(92vw,420px);padding:10px 12px}
@@ -57,5 +104,5 @@
 
 @media(prefers-reduced-motion:reduce){
   .wow-streaks i{animation:none!important}
-  #wowLayer.burst .wow-shockwave,#wowLayer.burst .wow-flash,#wowLayer.manual-pulse .wow-lens{animation:none!important}
+  #wowLayer.burst .wow-shockwave,#wowLayer.burst .wow-shockwave::after,#wowLayer.burst .wow-flash,#wowLayer.manual-pulse .wow-lens{animation:none!important}
 }
