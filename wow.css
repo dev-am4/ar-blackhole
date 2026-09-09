@@ -29,7 +29,6 @@
   transition:background .12s linear,box-shadow .12s linear
 }
 .wow-lens{
-  inset:-12%;
   opacity:var(--wow-lens-opacity);
   background:repeating-radial-gradient(ellipse at var(--bh-screen-x) var(--bh-screen-y),transparent 0 8%,rgba(171,194,255,.016) 8.25%,transparent 8.8% 13%);
   filter:blur(var(--wow-lens-blur)) saturate(var(--wow-saturate));
