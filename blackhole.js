@@ -122,6 +122,9 @@ function setVisitorExperience(name) {
   document.documentElement.dataset.experience = name;
   const badge = $('#experienceBadge');
   if (badge) badge.textContent = name === 'lab' ? 'BLACK HOLE LAB' : name === 'ar' ? 'AR VIEW' : '';
+
+  const snap = $('#snapshotBtn');
+  if (snap) snap.style.display = (name === 'ar' || name === 'lab') ? 'none' : '';
 }
 
 // Intro / Parallax state
