@@ -360,3 +360,102 @@ canvas.gl{display:block}
   .experiment-object small{font-size:7px}
   .experiment-intro{font-size:9.5px}
 }
+
+
+/* --------------------------------------------------------------------------
+   V2.2 Mission Mode
+   -------------------------------------------------------------------------- */
+.mission-panel{
+  position:absolute;z-index:34;left:50%;
+  bottom:calc(env(safe-area-inset-bottom) + 136px);
+  width:min(92vw,620px);padding:14px;
+  border:1px solid rgba(141,220,255,.22);border-radius:24px;
+  background:linear-gradient(145deg,rgba(3,7,18,.96),rgba(11,11,29,.94));
+  backdrop-filter:blur(24px);box-shadow:0 24px 70px rgba(0,0,0,.58);
+  opacity:0;pointer-events:none;transform:translate(-50%,18px) scale(.97);
+  transition:opacity .2s ease,transform .2s ease
+}
+.mission-panel.active{opacity:1;pointer-events:auto;transform:translate(-50%,0) scale(1)}
+.mission-panel-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.mission-panel-head>div{display:flex;flex-direction:column;gap:4px}
+.mission-panel-head span{color:#9ee4ff;font:700 9px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:.24em}
+.mission-panel-head strong{font-size:14px}
+.mission-panel-intro{margin:9px 0 11px;color:#8897b2;font-size:10.5px;line-height:1.5}
+.mission-list{display:grid;gap:7px}
+.mission-card{
+  display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:10px;
+  width:100%;min-height:66px;padding:9px 11px;
+  border:1px solid rgba(157,190,255,.12);border-radius:15px;
+  background:rgba(255,255,255,.035);color:#eef3fb;text-align:left;cursor:pointer;
+  transition:border-color .16s ease,background .16s ease,transform .16s ease
+}
+.mission-card:active{transform:scale(.985)}
+.mission-card:hover{border-color:rgba(141,220,255,.38);background:rgba(141,220,255,.06)}
+.mission-card.completed{border-color:rgba(129,255,186,.28);background:rgba(93,232,150,.05)}
+.mission-card.completed i{color:#91efbb}
+.mission-no{
+  display:grid;place-items:center;width:36px;height:36px;
+  border:1px solid rgba(141,220,255,.18);border-radius:50%;
+  color:#8ddcff;font:700 10px/1 ui-monospace,SFMono-Regular,monospace
+}
+.mission-card div{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mission-card strong{font-size:11px}
+.mission-card small{color:#75839d;font-size:9px;line-height:1.35}
+.mission-card i{color:#8ddcff;font-size:9px;font-style:normal;font-weight:800}
+
+.mission-hud{
+  position:absolute;z-index:29;top:calc(env(safe-area-inset-top) + 68px);right:14px;
+  width:min(320px,calc(100vw - 28px));padding:11px 12px;
+  border:1px solid rgba(141,220,255,.2);border-radius:17px;
+  background:rgba(3,7,18,.82);backdrop-filter:blur(18px);
+  box-shadow:0 16px 45px rgba(0,0,0,.38);
+  opacity:0;pointer-events:none;transform:translateY(-8px);
+  transition:opacity .18s ease,transform .18s ease
+}
+.mission-hud.active{opacity:1;pointer-events:auto;transform:translateY(0)}
+.mission-hud.complete{border-color:rgba(121,255,185,.3)}
+.mission-hud-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mission-hud-top span{color:#8ddcff;font:700 8px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:.16em}
+.mission-hud-top button{width:24px;height:24px;border:0;border-radius:50%;background:rgba(255,255,255,.05);color:#8190a8;cursor:pointer}
+.mission-hud>strong{display:block;margin-top:4px;font-size:11px;color:#fff4e5}
+.mission-hud>p{margin-top:3px;color:#8796af;font-size:9px;line-height:1.45}
+.mission-progress{height:3px;margin-top:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.07)}
+.mission-progress i{display:block;width:100%;height:100%;transform:scaleX(0);transform-origin:left center;background:linear-gradient(90deg,#8ddcff,#8d78ff,#ffd28f);transition:transform .28s ease}
+.mission-hud>small{display:block;margin-top:4px;color:#66738a;font:700 8px/1 ui-monospace,SFMono-Regular,monospace}
+
+.experiment-object.mission-target{
+  border-color:rgba(255,210,143,.62)!important;
+  background:rgba(255,210,143,.08)!important;
+  box-shadow:0 0 18px rgba(255,194,108,.12)
+}
+.experiment-object.mission-target::after{
+  content:"MISSION";margin-top:2px;color:#ffd28f;
+  font:700 6px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:.12em
+}
+
+.mission-result{
+  position:absolute;z-index:60;inset:0;display:grid;place-items:center;padding:20px;
+  background:radial-gradient(circle at 50% 50%,rgba(79,93,255,.10),rgba(1,3,8,.74));
+  backdrop-filter:blur(7px);opacity:0;pointer-events:none;transition:opacity .22s ease
+}
+.mission-result.active{opacity:1;pointer-events:auto}
+.mission-result-card{
+  width:min(420px,92vw);padding:24px 20px 18px;
+  border:1px solid rgba(141,220,255,.22);border-radius:24px;
+  background:linear-gradient(145deg,rgba(5,9,22,.98),rgba(14,12,34,.97));
+  box-shadow:0 28px 80px rgba(0,0,0,.62);text-align:center
+}
+.mission-result-card>span{color:#91efbb;font:800 9px/1 ui-monospace,SFMono-Regular,monospace;letter-spacing:.22em}
+.mission-result-card h3{margin-top:10px;font-size:21px;letter-spacing:-.02em}
+.mission-result-card p{margin:8px auto 0;max-width:350px;color:#99a6bb;font-size:11px;line-height:1.65}
+.mission-result-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:17px}
+.mission-result-actions .btn{min-height:42px}
+
+@media(max-width:560px){
+  .mission-panel{bottom:calc(env(safe-area-inset-bottom) + 126px);width:min(94vw,520px);padding:11px;border-radius:20px}
+  .mission-card{grid-template-columns:36px 1fr auto;gap:7px;min-height:60px;padding:8px}
+  .mission-no{width:31px;height:31px;font-size:9px}
+  .mission-card small{font-size:8px}
+  .mission-hud{top:calc(env(safe-area-inset-top) + 62px);left:50%;right:auto;width:min(92vw,360px);transform:translate(-50%,-8px)}
+  .mission-hud.active{transform:translate(-50%,0)}
+}

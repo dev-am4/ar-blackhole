@@ -1077,6 +1077,8 @@ function placeBlackHole() {
     if (infoBtn) infoBtn.style.display = 'block';
     const videoBtn = $('#videoBtn');
     if (videoBtn) videoBtn.style.display = 'block';
+    const missionBtn = $('#missionBtn');
+    if (missionBtn) missionBtn.style.display = 'block';
     const experimentBtn = $('#experimentBtn');
     if (experimentBtn) experimentBtn.style.display = 'block';
     const toolsBtn = $('#toolsBtn');
@@ -1115,6 +1117,10 @@ function moveBlackHole() {
   const experimentPanel = $('#experimentPanel');
   experimentPanel?.classList.remove('active');
   experimentPanel?.setAttribute('aria-hidden','true');
+  const missionPanel = $('#missionPanel');
+  missionPanel?.classList.remove('active');
+  missionPanel?.setAttribute('aria-hidden','true');
+  cancelMission(false);
   if (hint) {
     hint.style.transition = 'none';
     hint.style.opacity = '1';
@@ -1729,6 +1735,138 @@ function updateEarthSim(dt) {
 }
 
 // -----------------------------------------------------------------------------
+// Mission Mode · guided exhibit challenges
+// -----------------------------------------------------------------------------
+const MISSIONS = {
+  lensing:{
+    order:1,title:'เบนลำแสง',
+    steps:[{type:'photon',phase:'tidal',label:'ปล่อยลำแสงให้เข้าใกล้หลุมดำจนถึงช่วง Gravitational Lensing'}],
+    result:'แสงเดินทางตามเส้นทางในกาล-อวกาศที่โค้ง จึงเกิดการเบนของแสงและปรากฏการณ์เลนส์ความโน้มถ่วง'
+  },
+  compare:{
+    order:2,title:'เปรียบเทียบสองวิถี',
+    steps:[
+      {type:'earth',phase:'gravity',label:'ส่งโลกเข้าสู่บริเวณที่วิถีเปลี่ยนอย่างชัดเจน'},
+      {type:'comet',phase:'gravity',label:'จากนั้นทดลองดาวหางในบริเวณเดียวกัน'}
+    ],
+    result:'โลกและดาวหางต่างมีวิถีเปลี่ยนจากสนามแรงโน้มถ่วง แต่แบบจำลองใช้รูปร่าง การหมุน และ trail ต่างกันเพื่อช่วยให้สังเกตผลเชิงคุณภาพได้ง่าย'
+  },
+  horizon:{
+    order:3,title:'ถึงขอบฟ้าเหตุการณ์',
+    steps:[{type:'satellite',phase:'horizon',label:'ส่งดาวเทียมไปจนถึง Event Horizon'}],
+    result:'ขอบฟ้าเหตุการณ์ไม่ใช่พื้นผิวแข็ง แต่เป็นขอบเขตที่เมื่อผ่านเข้าไปแล้ว ไม่มีสัญญาณหรือแสงสามารถกลับออกมาถึงผู้สังเกตภายนอกได้'
+  }
+};
+const PHASE_RANK={far:0,gravity:1,tidal:2,horizon:3};
+let missionState={id:null,step:0,complete:false};
+const completedMissions=new Set();
+
+function currentMission(){return missionState.id?MISSIONS[missionState.id]:null;}
+function currentMissionStep(){return currentMission()?.steps?.[missionState.step]||null;}
+
+function updateMissionTarget(){
+  const step=currentMissionStep();
+  document.querySelectorAll('.experiment-object').forEach(btn=>{
+    btn.classList.toggle('mission-target',!!step&&btn.dataset.object===step.type);
+  });
+}
+
+function updateMissionHud(state='MISSION ACTIVE'){
+  const mission=currentMission(), step=currentMissionStep(), hud=$('#missionHud');
+  if(!mission||missionState.complete)return;
+  hud?.classList.add('active'); hud?.classList.remove('complete');
+  if($('#missionHudState'))$('#missionHudState').textContent=state;
+  if($('#missionHudTitle'))$('#missionHudTitle').textContent=mission.title;
+  if($('#missionHudText'))$('#missionHudText').textContent=step?.label||'';
+  const done=missionState.step,total=mission.steps.length;
+  if($('#missionProgressFill'))$('#missionProgressFill').style.transform='scaleX('+Math.min(1,done/total)+')';
+  if($('#missionProgressText'))$('#missionProgressText').textContent=done+' / '+total;
+  updateMissionTarget();
+}
+
+function openExperimentForMission(){
+  $('#missionPanel')?.classList.remove('active');
+  $('#missionPanel')?.setAttribute('aria-hidden','true');
+  $('#missionBtn')?.classList.remove('active');
+  $('#experimentPanel')?.classList.add('active');
+  $('#experimentPanel')?.setAttribute('aria-hidden','false');
+  $('#experimentBtn')?.classList.add('active');
+  $('#physicsPanel')?.classList.remove('active');
+  $('#infoDrawer')?.classList.remove('active');
+  $('#videoModal')?.classList.remove('active');
+}
+
+function startMission(id){
+  const mission=MISSIONS[id];
+  if(!mission||!placed)return;
+  clearGravityLab();
+  missionState={id,step:0,complete:false};
+  $('#missionResult')?.classList.remove('active');
+  $('#missionResult')?.setAttribute('aria-hidden','true');
+  openExperimentForMission();
+  updateMissionHud();
+  experimentUI('MISSION',mission.title,currentMissionStep()?.label||'เริ่มภารกิจ');
+  navigator.vibrate?.([18,28,18]);
+  resetKioskIdle();
+}
+
+function nextMissionId(){
+  const ordered=Object.entries(MISSIONS).sort((a,b)=>a[1].order-b[1].order);
+  const currentOrder=MISSIONS[missionState.id]?.order||0;
+  return ordered.find(([id,m])=>m.order>currentOrder&&!completedMissions.has(id))?.[0]
+    ||ordered.find(([id])=>!completedMissions.has(id))?.[0]||null;
+}
+
+function completeMission(){
+  const mission=currentMission();
+  if(!mission||missionState.complete)return;
+  missionState.complete=true;
+  completedMissions.add(missionState.id);
+  $('#missionHud')?.classList.add('active','complete');
+  if($('#missionHudState'))$('#missionHudState').textContent='MISSION COMPLETE';
+  if($('#missionHudText'))$('#missionHudText').textContent='ภารกิจสำเร็จ';
+  if($('#missionProgressFill'))$('#missionProgressFill').style.transform='scaleX(1)';
+  if($('#missionProgressText')){
+    const t=mission.steps.length; $('#missionProgressText').textContent=t+' / '+t;
+  }
+  document.querySelectorAll('.mission-card').forEach(card=>{
+    const done=completedMissions.has(card.dataset.mission);
+    card.classList.toggle('completed',done);
+    const i=card.querySelector('i'); if(i)i.textContent=done?'สำเร็จ':'เริ่ม';
+  });
+  document.querySelectorAll('.experiment-object').forEach(btn=>btn.classList.remove('mission-target'));
+  if($('#missionResultTitle'))$('#missionResultTitle').textContent=mission.title+' · สำเร็จ';
+  if($('#missionResultText'))$('#missionResultText').textContent=mission.result;
+  $('#missionResult')?.classList.add('active');
+  $('#missionResult')?.setAttribute('aria-hidden','false');
+  const next=nextMissionId(), nextBtn=$('#nextMissionBtn');
+  if(nextBtn){nextBtn.hidden=!next; nextBtn.textContent=next?'ภารกิจถัดไป':'ครบทุกภารกิจ';}
+  navigator.vibrate?.([28,32,28,32,55]);
+  resetKioskIdle();
+}
+
+function observeMission(type,phase){
+  const mission=currentMission(),step=currentMissionStep();
+  if(!mission||!step||missionState.complete||type!==step.type)return;
+  if((PHASE_RANK[phase]??-1)<(PHASE_RANK[step.phase]??99))return;
+  missionState.step++;
+  if(missionState.step>=mission.steps.length){completeMission();return;}
+  updateMissionHud('STEP COMPLETE');
+  experimentUI('NEXT STEP',mission.title,currentMissionStep()?.label||'ทำขั้นต่อไป');
+  navigator.vibrate?.([20,24,20]);
+}
+
+function cancelMission(resetResult=true){
+  missionState={id:null,step:0,complete:false};
+  $('#missionHud')?.classList.remove('active','complete');
+  document.querySelectorAll('.experiment-object').forEach(btn=>btn.classList.remove('mission-target'));
+  if(resetResult){
+    $('#missionResult')?.classList.remove('active');
+    $('#missionResult')?.setAttribute('aria-hidden','true');
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Gravity Lab · qualitative object experiments
 // -----------------------------------------------------------------------------
 const labObjects = [];
@@ -1921,6 +2059,11 @@ function launchGravityLab(type) {
   clearGravityLab();
   activeExperimentType = type;
 
+  const missionStep=currentMissionStep();
+  if(missionStep&&!missionState.complete&&missionStep.type!==type){
+    updateMissionHud('TRY ANOTHER OBJECT');
+  }
+
   const config = EXPERIMENTS[type];
   const root = makeLabRoot(type);
   root.scale.setScalar(baseScale);
@@ -2030,6 +2173,7 @@ function updateExperimentNarrative(item, dist, rs) {
     lastExperimentPhase = phase;
     experimentUI(state,title,text,event);
   }
+  observeMission(item.type,phase);
 }
 
 function updateGravityLab(dt, activeCamera) {
@@ -2263,6 +2407,51 @@ function setupInteractiveUI() {
     earthSimBtn.addEventListener('click', startEarthSimulation);
   }
 
+  // Mission Mode
+  const missionBtn=$('#missionBtn');
+  const missionPanel=$('#missionPanel');
+  const closeMissionBtn=$('#closeMissionBtn');
+  const cancelMissionBtn=$('#cancelMissionBtn');
+  const missionContinueBtn=$('#missionContinueBtn');
+  const nextMissionBtn=$('#nextMissionBtn');
+
+  if(missionBtn&&missionPanel){
+    missionBtn.addEventListener('click',()=>{
+      const open=!missionPanel.classList.contains('active');
+      missionPanel.classList.toggle('active',open);
+      missionPanel.setAttribute('aria-hidden',open?'false':'true');
+      missionBtn.classList.toggle('active',open);
+      $('#experimentPanel')?.classList.remove('active');
+      $('#experimentPanel')?.setAttribute('aria-hidden','true');
+      $('#experimentBtn')?.classList.remove('active');
+      $('#physicsPanel')?.classList.remove('active');
+      $('#infoDrawer')?.classList.remove('active');
+      $('#videoModal')?.classList.remove('active');
+      resetKioskIdle();
+    });
+  }
+  closeMissionBtn?.addEventListener('click',()=>{
+    missionPanel?.classList.remove('active');
+    missionPanel?.setAttribute('aria-hidden','true');
+    missionBtn?.classList.remove('active');
+  });
+  cancelMissionBtn?.addEventListener('click',()=>{cancelMission();clearGravityLab();});
+  missionContinueBtn?.addEventListener('click',()=>{
+    $('#missionResult')?.classList.remove('active');
+    $('#missionResult')?.setAttribute('aria-hidden','true');
+    $('#missionHud')?.classList.remove('active','complete');
+    missionState={id:null,step:0,complete:false};
+  });
+  nextMissionBtn?.addEventListener('click',()=>{
+    const next=nextMissionId();
+    $('#missionResult')?.classList.remove('active');
+    $('#missionResult')?.setAttribute('aria-hidden','true');
+    if(next)startMission(next);
+  });
+  document.querySelectorAll('.mission-card').forEach(card=>{
+    card.addEventListener('click',()=>startMission(card.dataset.mission));
+  });
+
   // Gravity Lab
   const experimentBtn = $('#experimentBtn');
   const experimentPanel = $('#experimentPanel');
@@ -2275,6 +2464,9 @@ function setupInteractiveUI() {
       experimentPanel.classList.toggle('active',open);
       experimentPanel.setAttribute('aria-hidden',open ? 'false' : 'true');
       experimentBtn.classList.toggle('active',open);
+      $('#missionPanel')?.classList.remove('active');
+      $('#missionPanel')?.setAttribute('aria-hidden','true');
+      $('#missionBtn')?.classList.remove('active');
       $('#physicsPanel')?.classList.remove('active');
       $('#infoDrawer')?.classList.remove('active');
       $('#videoModal')?.classList.remove('active');
@@ -2444,6 +2636,9 @@ function setupInteractiveUI() {
       if (videoModal) videoModal.classList.remove('active');
       $('#experimentPanel')?.classList.remove('active');
       $('#experimentBtn')?.classList.remove('active');
+      $('#missionPanel')?.classList.remove('active');
+      $('#missionPanel')?.setAttribute('aria-hidden','true');
+      $('#missionBtn')?.classList.remove('active');
     });
   }
 
@@ -2454,6 +2649,9 @@ function setupInteractiveUI() {
       if (videoModal) videoModal.classList.remove('active');
       $('#experimentPanel')?.classList.remove('active');
       $('#experimentBtn')?.classList.remove('active');
+      $('#missionPanel')?.classList.remove('active');
+      $('#missionPanel')?.setAttribute('aria-hidden','true');
+      $('#missionBtn')?.classList.remove('active');
     });
   }
 

@@ -46,8 +46,57 @@
       <button id="jetToggleBtn" class="action-pill active" title="เปิดหรือปิดลำพลาสมา" style="display:none">⚡ ลำพลาสมา</button>
       <button id="labelToggleBtn" class="action-pill" title="เปิดหรือปิดป้ายกำกับ" style="display:none">⌖ ป้ายกำกับ</button>
       <button id="earthSimBtn" class="action-pill" title="ทดลองแรงไทดัลกับโลก" style="display:none">🌍 ทดลองกับโลก</button>
+      <button id="missionBtn" class="action-pill" title="Mission Mode" style="display:none">◆ ภารกิจ</button>
       <button id="experimentBtn" class="action-pill" title="Gravity Lab" style="display:none">✦ ทดลองวัตถุ</button>
       <button id="videoBtn" class="action-pill" title="ชมวิดีโออ้างอิง" style="display:none">▶ วิดีโอ</button>
+    </div>
+
+    <section id="missionPanel" class="mission-panel interactive-ui" aria-label="Mission Mode" aria-hidden="true">
+      <div class="mission-panel-head">
+        <div>
+          <span>MISSION MODE</span>
+          <strong>ภารกิจสำรวจแรงโน้มถ่วงสุดขั้ว</strong>
+        </div>
+        <button id="closeMissionBtn" class="close-drawer-btn" aria-label="ปิด Mission Mode">✕</button>
+      </div>
+      <p class="mission-panel-intro">ทำภารกิจสั้น ๆ แล้วสังเกตว่าวัตถุและแสงตอบสนองต่อสนามแรงโน้มถ่วงต่างกันอย่างไร</p>
+      <div class="mission-list">
+        <button class="mission-card" data-mission="lensing">
+          <span class="mission-no">01</span>
+          <div><strong>เบนลำแสง</strong><small>ส่งลำแสงเข้าใกล้หลุมดำจนเห็นช่วง Gravitational Lensing</small></div><i>เริ่ม</i>
+        </button>
+        <button class="mission-card" data-mission="compare">
+          <span class="mission-no">02</span>
+          <div><strong>เปรียบเทียบสองวิถี</strong><small>ทดลอง “โลก” และ “ดาวหาง” ให้เข้าสู่สนามแรงโน้มถ่วงเข้ม</small></div><i>เริ่ม</i>
+        </button>
+        <button class="mission-card" data-mission="horizon">
+          <span class="mission-no">03</span>
+          <div><strong>ถึงขอบฟ้าเหตุการณ์</strong><small>ส่งดาวเทียมไปจนถึง Event Horizon</small></div><i>เริ่ม</i>
+        </button>
+      </div>
+    </section>
+
+    <div id="missionHud" class="mission-hud interactive-ui" aria-live="polite">
+      <div class="mission-hud-top">
+        <span id="missionHudState">MISSION ACTIVE</span>
+        <button id="cancelMissionBtn" aria-label="ยกเลิกภารกิจ">✕</button>
+      </div>
+      <strong id="missionHudTitle">ภารกิจ</strong>
+      <p id="missionHudText"></p>
+      <div class="mission-progress"><i id="missionProgressFill"></i></div>
+      <small id="missionProgressText">0 / 1</small>
+    </div>
+
+    <div id="missionResult" class="mission-result interactive-ui" aria-hidden="true">
+      <div class="mission-result-card">
+        <span>MISSION COMPLETE</span>
+        <h3 id="missionResultTitle">ภารกิจสำเร็จ</h3>
+        <p id="missionResultText"></p>
+        <div class="mission-result-actions">
+          <button id="nextMissionBtn" class="btn hero">ภารกิจถัดไป</button>
+          <button id="missionContinueBtn" class="btn">ทดลองต่อ</button>
+        </div>
+      </div>
     </div>
 
     <section id="experimentPanel" class="experiment-panel interactive-ui" aria-label="Gravity Lab" aria-hidden="true">

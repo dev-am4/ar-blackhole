@@ -143,3 +143,14 @@ Gravity Lab เพิ่มการทดลองเปรียบเที�
 - ลำแสง — แสดง light bending พร้อม trail สำหรับอธิบาย gravitational lensing
 
 แบบจำลอง Gravity Lab เป็น visualization เชิงคุณภาพ ไม่ใช่ numerical general-relativity geodesic solver และ UI ระบุข้อจำกัดนี้ไว้ชัดเจน
+
+
+## V2.2 Mission Mode
+
+Mission Mode เปลี่ยน Gravity Lab ให้เป็นกิจกรรมแบบมีเป้าหมาย โดยระบบตรวจ progression จากชนิดวัตถุและช่วงของ trajectory ที่แบบจำลองกำลังอยู่:
+
+1. **เบนลำแสง** — ใช้ Photon ให้ถึงช่วง Gravitational Lensing
+2. **เปรียบเทียบสองวิถี** — ทดลอง Earth แล้ว Comet ให้เข้าสู่ช่วงที่สนามแรงโน้มถ่วงเปลี่ยนวิถีอย่างชัดเจน
+3. **ถึงขอบฟ้าเหตุการณ์** — ส่ง Satellite ให้ถึง Event Horizon
+
+Mission HUD แสดงขั้นตอนปัจจุบัน, progress, ชี้ปุ่มวัตถุที่ควรเลือก และแสดงผลสรุปเมื่อสำเร็จ ผู้ชมยังสามารถลองวัตถุอื่นระหว่างภารกิจได้โดยไม่ทำให้ภารกิจล้มเหลว
