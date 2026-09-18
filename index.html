@@ -36,6 +36,7 @@
       <div class="intro-actions">
         <button id="startBtn" class="primary-launch-btn">เปิดกล้อง AR สำรวจในพื้นที่จริง</button>
         <button id="simIntroBtn" class="secondary-sim-btn">เข้าสู่ห้องจำลองอวกาศ 3D (3D Simulator)</button>
+        <button id="introVideoBtn" class="secondary-sim-btn" style="background:rgba(255,100,50,0.15); color: #ffd1b3; border-color: rgba(255,150,100,0.3);">🎥 ชมวิดีโออธิบายการทำงานแบบสมจริง</button>
       </div>
       <p class="compat">รองรับทั้งมือถือ แท็บเล็ต และคอมพิวเตอร์ · จำลองฟิสิกส์ดาราศาสตร์สัมพัทธภาพทั่วไป</p>
     </div>
@@ -48,6 +49,7 @@
       <div class="topbar-actions">
         <button id="physicsBtn" class="action-pill" title="ปรับแต่งฟิสิกส์">⚙️ ฟิสิกส์</button>
         <button id="infoBtn" class="action-pill" title="องค์ประกอบทางวิทยาศาสตร์">🌌 ความรู้หลุมดำ</button>
+        <button id="videoBtn" class="action-pill" title="วิดีโอสมจริง">🎥 วิดีโอ</button>
         <button id="exitBtn" class="exit">ออก</button>
       </div>
     </div>
@@ -83,6 +85,18 @@
           <span>เลนส์บิดเบือนกาล-อวกาศ (Spacetime Lensing):</span>
           <input type="checkbox" id="lensingToggle" checked>
         </label>
+      </div>
+    </div>
+
+    <!-- Video Modal -->
+    <div id="videoModal" class="video-modal interactive-ui" aria-label="วิดีโอการทำงานของหลุมดำ">
+      <div class="modal-header">
+        <h3>NASA Black Hole Simulation</h3>
+        <button id="closeVideoBtn" class="close-drawer-btn" aria-label="ปิด">✕</button>
+      </div>
+      <div class="modal-body">
+        <iframe id="youtubeIframe" src="" title="NASA Black Hole Video" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+        <p class="video-desc">วิดีโอจำลองความสมจริงจากซูเปอร์คอมพิวเตอร์ของ NASA แสดงพฤติกรรมของแสงและแรงโน้มถ่วงรอบขอบฟ้าเหตุการณ์</p>
       </div>
     </div>
 
