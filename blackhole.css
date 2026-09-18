@@ -717,3 +717,96 @@ html[data-device="mobile"] .action-pill{
   .mission-card{grid-template-columns:32px 1fr}
   .mission-card i{display:none}
 }
+
+
+/* --------------------------------------------------------------------------
+   V2.5 Explicit mode selector
+   -------------------------------------------------------------------------- */
+.mode-choice-grid{
+  width:min(720px,94vw);
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin-top:2px;
+}
+.mode-card{
+  position:relative;
+  min-height:132px;
+  display:grid;
+  grid-template-columns:46px 1fr;
+  align-items:center;
+  gap:12px;
+  padding:17px 18px;
+  border:1px solid rgba(157,190,255,.18);
+  border-radius:22px;
+  background:linear-gradient(145deg,rgba(7,11,25,.88),rgba(14,13,35,.82));
+  color:#f7f8fb;
+  text-align:left;
+  cursor:pointer;
+  box-shadow:0 18px 42px rgba(0,0,0,.28);
+  transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.mode-card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(141,220,255,.38);
+  box-shadow:0 22px 48px rgba(0,0,0,.34);
+}
+.mode-card:active{transform:scale(.985)}
+.mode-card-camera{
+  background:
+    radial-gradient(circle at 12% 18%,rgba(141,220,255,.10),transparent 42%),
+    linear-gradient(145deg,rgba(5,12,25,.92),rgba(7,19,29,.88));
+}
+.mode-card-simulator{
+  background:
+    radial-gradient(circle at 12% 18%,rgba(141,120,255,.12),transparent 42%),
+    linear-gradient(145deg,rgba(9,8,24,.92),rgba(19,11,35,.88));
+}
+.mode-icon{
+  width:46px;height:46px;
+  display:grid;place-items:center;
+  border:1px solid rgba(141,220,255,.22);
+  border-radius:15px;
+  background:rgba(255,255,255,.04);
+  color:#bcecff;
+  font-size:23px;
+}
+.mode-card-simulator .mode-icon{color:#cbbdff;border-color:rgba(173,152,255,.26)}
+.mode-copy{display:flex;flex-direction:column;gap:5px;min-width:0}
+.mode-copy strong{font-size:15px;letter-spacing:-.01em}
+.mode-copy small{color:#8e9bb3;font-size:10.5px;line-height:1.5;font-weight:500}
+.mode-card>i{
+  grid-column:1/-1;
+  color:#7f8ca4;
+  font:700 8.5px/1 ui-monospace,SFMono-Regular,monospace;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  font-style:normal;
+}
+.mode-note{
+  margin-top:13px;
+  color:#68758c;
+  font-size:9.5px;
+  line-height:1.4;
+  text-align:center
+}
+
+@media(max-width:700px){
+  .mode-choice-grid{
+    width:min(94vw,440px);
+    grid-template-columns:1fr;
+    gap:9px;
+  }
+  .mode-card{
+    min-height:104px;
+    padding:13px 14px;
+    border-radius:18px;
+    grid-template-columns:42px 1fr;
+    gap:10px;
+  }
+  .mode-icon{width:42px;height:42px;border-radius:13px;font-size:20px}
+  .mode-copy strong{font-size:13.5px}
+  .mode-copy small{font-size:9.5px;line-height:1.45}
+  .mode-card>i{font-size:7.5px}
+  .mode-note{font-size:8.5px;margin-top:10px}
+}
