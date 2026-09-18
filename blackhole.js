@@ -57,14 +57,20 @@ let gravityTarget = 0;
 let lastFrame = performance.now();
 let nearLatch = false;
 let audio = null;
+let soundEnabled = false;
+let jetEnabled = true;
+let cameraCinematicMode = 'manual';
+let targetTheta = 0.25;
+let targetPhi = 1.25;
+let targetRadius = 5.2;
 
 // Simulator Orbit Controls
 const simOrbit = {
   isDragging: false,
   previousMousePosition: { x: 0, y: 0 },
-  theta: 0.35,
-  phi: 1.15,
-  radius: 3.2,
+  theta: 0.25,
+  phi: 1.25,
+  radius: 5.2,
   target: new THREE.Vector3(0, 0.78, 0)
 };
 
@@ -179,15 +185,39 @@ function initAudio() {
   }
 }
 
+function toggleAudio() {
+  soundEnabled = !soundEnabled;
+  const soundBtn = $('#soundToggleBtn');
+  if (soundBtn) {
+    soundBtn.classList.toggle('sound-active', soundEnabled);
+    soundBtn.textContent = soundEnabled ? '🔊 เสียงเปิด' : '🔇 เสียงปิด';
+  }
+
+  if (soundEnabled) {
+    if (!audio) audio = initAudio();
+    if (audio?.ctx?.state === 'suspended') {
+      audio.ctx.resume().catch(() => {});
+    }
+    updateAudio(gravity);
+  } else if (audio?.master) {
+    audio.master.gain.setTargetAtTime(0.0001, audio.ctx.currentTime, 0.08);
+  }
+}
+
 function updateAudio(strength) {
-  if (!audio) return;
+  if (!audio || !soundEnabled) {
+    if (audio?.master && !soundEnabled) {
+      audio.master.gain.setTargetAtTime(0.0001, audio.ctx.currentTime, 0.08);
+    }
+    return;
+  }
   const t = audio.ctx.currentTime;
-  const vol = placed ? 0.012 + strength * 0.045 : 0.0001;
+  const vol = 0.025 + strength * 0.075;
   audio.master.gain.setTargetAtTime(vol, t, 0.08);
-  audio.low.frequency.setTargetAtTime(48 + strength * 26, t, 0.08);
-  audio.sub.frequency.setTargetAtTime(24 + strength * 13, t, 0.08);
-  audio.noiseFilter.frequency.setTargetAtTime(180 + strength * 420, t, 0.08);
-  audio.noiseGain.gain.setTargetAtTime(0.015 + strength * 0.035, t, 0.08);
+  audio.low.frequency.setTargetAtTime(32 + strength * 32, t, 0.08);
+  audio.sub.frequency.setTargetAtTime(20 + strength * 16, t, 0.08);
+  audio.noiseFilter.frequency.setTargetAtTime(140 + strength * 500, t, 0.08);
+  audio.noiseGain.gain.setTargetAtTime(0.02 + strength * 0.05, t, 0.08);
 }
 
 // -----------------------------------------------------------------------------
@@ -245,19 +275,64 @@ const GLSL_COMMON_ASTRO = `
 
   // Astrophysical Blackbody Radiation Color Palette
   vec3 getBlackbodyColor(float tempNorm, float doppler) {
-    // Effective temperature shifted by Doppler factor
     float t = clamp(tempNorm * doppler, 0.0, 2.5);
-
-    vec3 coolDust   = vec3(0.38, 0.05, 0.01); // 1,800 K (dark red dust)
-    vec3 redOrange  = vec3(1.00, 0.28, 0.04); // 4,000 K (solar orange)
-    vec3 goldenWarm = vec3(1.00, 0.68, 0.22); // 7,500 K (bright gold)
-    vec3 hotWhite   = vec3(1.00, 0.94, 0.78); // 18,000 K (incandescent white)
-    vec3 blueBeamed = vec3(0.72, 0.88, 1.00); // 45,000 K (relativistic blue-shift)
+    vec3 coolDust   = vec3(0.38, 0.05, 0.01); // 1,800 K
+    vec3 redOrange  = vec3(1.00, 0.28, 0.04); // 4,000 K
+    vec3 goldenWarm = vec3(1.00, 0.68, 0.22); // 7,500 K
+    vec3 hotWhite   = vec3(1.00, 0.94, 0.78); // 18,000 K
+    vec3 blueBeamed = vec3(0.72, 0.88, 1.00); // 45,000 K
 
     vec3 col = mix(coolDust, redOrange, smoothstep(0.0, 0.35, t));
     col = mix(col, goldenWarm, smoothstep(0.35, 0.75, t));
     col = mix(col, hotWhite, smoothstep(0.75, 1.35, t));
     col = mix(col, blueBeamed, smoothstep(1.35, 2.2, t));
+    return col;
+  }
+`;
+
+// Shared procedural cosmic starfield & nebula
+const GLSL_COSMIC_STARFIELD = `
+  vec3 getCosmicStarfield(vec3 dir) {
+    vec3 col = vec3(0.002, 0.003, 0.008);
+    
+    // 1. Milky Way Galactic Plane & Core
+    float galPlane = exp(-abs(dir.y) * 3.8);
+    float coreGlow = exp(-abs(dir.x) * 2.2 - abs(dir.y) * 5.5) * 1.8;
+    
+    vec3 nebViolet = vec3(0.18, 0.05, 0.35);
+    vec3 nebCyan   = vec3(0.02, 0.18, 0.32);
+    vec3 nebAmber  = vec3(0.42, 0.16, 0.05);
+    
+    float nebNoise = snoise(dir.xy * 2.8 + vec2(dir.z * 1.5, 0.0));
+    float nebPuff  = snoise(dir.zy * 4.2 - vec2(0.0, dir.x * 2.0));
+    float nebTotal = clamp(nebNoise * 0.6 + nebPuff * 0.4 + 0.25, 0.0, 1.0);
+    
+    vec3 nebula = mix(nebViolet, nebCyan, dir.x * 0.5 + 0.5);
+    nebula = mix(nebula, nebAmber, smoothstep(0.3, 0.8, nebTotal));
+    col += nebula * galPlane * (0.95 + nebTotal * 0.85) + vec3(0.45, 0.22, 0.08) * coreGlow;
+    
+    // 2. Stars with realistic spectral classification & spikes
+    vec3 p = dir * 210.0;
+    vec3 fl = floor(p);
+    float starRand = fract(sin(dot(fl, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+    
+    if (starRand > 0.965) {
+      vec3 starFrac = fract(p) - 0.5;
+      float starDist = length(starFrac);
+      float starBright = smoothstep(0.42, 0.02, starDist) * pow(starRand, 14.0) * 14.0;
+      
+      vec3 starTint = mix(vec3(0.70, 0.86, 1.0), vec3(1.0, 0.86, 0.60), fract(starRand * 27.0));
+      if (fract(starRand * 13.0) > 0.82) starTint = vec3(1.0, 0.45, 0.25);
+      
+      if (starRand > 0.995) {
+        float crossSpike = max(
+          smoothstep(0.45, 0.0, abs(starFrac.x)) * smoothstep(0.08, 0.0, abs(starFrac.y)),
+          smoothstep(0.45, 0.0, abs(starFrac.y)) * smoothstep(0.08, 0.0, abs(starFrac.x))
+        ) * 1.6;
+        starBright += crossSpike * 9.0;
+      }
+      col += starTint * starBright;
+    }
     return col;
   }
 `;
@@ -268,7 +343,7 @@ const GLSL_COMMON_ASTRO = `
 // Gravitational Lensing arches, Doppler Beaming asymmetry, and Event Horizon shadow.
 // -----------------------------------------------------------------------------
 function createRelativisticRaymarchedBlackHole() {
-  const geo = new THREE.SphereGeometry(2.65, 48, 48);
+  const geo = new THREE.SphereGeometry(4.85, 48, 48);
   const mat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -281,7 +356,8 @@ function createRelativisticRaymarchedBlackHole() {
       uSpin: { value: 0.85 },
       uBrightness: { value: 1.0 },
       uEnableLensing: { value: 1.0 },
-      uTilt: { value: 0.38 }
+      uTilt: { value: 0.38 },
+      uIsSimulator: { value: 1.0 }
     },
     vertexShader: `
       varying vec3 vLocalPos;
@@ -296,6 +372,7 @@ function createRelativisticRaymarchedBlackHole() {
     fragmentShader: `
       precision highp float;
       ${GLSL_COMMON_ASTRO}
+      ${GLSL_COSMIC_STARFIELD}
 
       uniform float uTime;
       uniform float uGravity;
@@ -305,6 +382,7 @@ function createRelativisticRaymarchedBlackHole() {
       uniform float uBrightness;
       uniform float uEnableLensing;
       uniform float uTilt;
+      uniform float uIsSimulator;
 
       varying vec3 vLocalPos;
       varying vec3 vWorldPos;
@@ -317,33 +395,11 @@ function createRelativisticRaymarchedBlackHole() {
         return -b - sqrt(disc);
       }
 
-      vec3 getCosmicStarfield(vec3 dir) {
-        vec3 col = vec3(0.003, 0.004, 0.009);
-        
-        // Milky Way Band
-        float galacticBand = exp(-abs(dir.y) * 4.4);
-        float coreGlow = exp(-abs(dir.x) * 2.0 - abs(dir.y) * 6.0) * 1.5;
-        vec3 nebulaCol = mix(vec3(0.05, 0.08, 0.25), vec3(0.4, 0.15, 0.1), dir.x * 0.5 + 0.5);
-        col += nebulaCol * galacticBand * 0.8 + vec3(0.2, 0.1, 0.05) * coreGlow;
-
-        vec3 p = dir * 180.0;
-        vec3 fl = floor(p);
-        float starRand = fract(sin(dot(fl, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
-        if (starRand > 0.975) {
-          vec3 starFrac = fract(p) - 0.5;
-          float starDist = length(starFrac);
-          float starBright = smoothstep(0.40, 0.02, starDist) * pow(starRand, 12.0) * 12.0;
-          vec3 starTint = mix(vec3(0.78, 0.88, 1.0), vec3(1.0, 0.84, 0.55), fract(starRand * 31.0));
-          col += starTint * starBright;
-        }
-        return col;
-      }
-
       void main() {
         vec3 o = uCamLocal;
         vec3 d = normalize(vLocalPos - uCamLocal);
 
-        float R_BOUND = 2.60 * uMass;
+        float R_BOUND = 4.80 * uMass;
         float tEnter = intersectSphere(o, d, R_BOUND);
         vec3 r = (tEnter > 0.0) ? (o + d * tEnter) : o;
         vec3 v = d;
@@ -351,7 +407,7 @@ function createRelativisticRaymarchedBlackHole() {
         float rs = 0.38 * uMass;
         float rh = rs * 0.5 * (1.0 + sqrt(max(0.01, 1.0 - uSpin * uSpin * 0.72)));
         float r_isco = 3.0 * rs * (1.0 - 0.40 * uSpin);
-        float r_out = 2.35 * uMass;
+        float r_out = 2.45 * uMass;
 
         float ct = cos(uTilt);
         float st = sin(uTilt);
@@ -370,7 +426,11 @@ function createRelativisticRaymarchedBlackHole() {
         float transmittance = 1.0;
         bool hitHorizon = false;
 
-        for (int i = 0; i < 54; i++) {
+        // Dither ray start to eliminate banding and moiré artifacts
+        float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+        r += v * (0.016 * jitter);
+
+        for (int i = 0; i < 76; i++) {
           float dist = length(r);
 
           if (dist <= rh) {
@@ -379,16 +439,26 @@ function createRelativisticRaymarchedBlackHole() {
             break;
           }
 
-          if (dist > R_BOUND * 1.02) {
+          if (dist > R_BOUND * 1.04) {
             break;
           }
 
-          float dt = clamp((dist - rh * 0.94) * 0.135, 0.018, 0.125);
+          vec3 pDiskTest = tiltRot * r;
+          float rDTest = length(pDiskTest.xz);
+          bool inDiskZone = (abs(pDiskTest.y) < 0.18 && rDTest >= r_isco * 0.85 && rDTest <= r_out * 1.08);
+          float baseDt = clamp((dist - rh * 0.94) * 0.115, 0.014, 0.11);
+          float dt = inDiskZone ? min(baseDt, 0.026) : baseDt;
 
           if (uEnableLensing > 0.5) {
             vec3 h = cross(r, v);
             float h2 = dot(h, h);
+            // Geodesic deflection (GR light bending)
             vec3 a = -1.5 * rs * h2 * r / (dist * dist * dist * dist * dist + 0.00001);
+            
+            // Kerr spin frame dragging (Lense-Thirring effect)
+            vec3 spinAxis = invTilt * vec3(0.0, 1.0, 0.0);
+            a += 0.75 * uSpin * rs * cross(v, spinAxis) / (dist * dist * dist + 0.00001);
+            
             v = normalize(v + a * dt);
           }
 
@@ -398,16 +468,16 @@ function createRelativisticRaymarchedBlackHole() {
           float rD = length(pDisk.xz);
 
           if (rD >= r_isco && rD <= r_out) {
-            float hDisk = 0.015 + 0.025 * (rD - r_isco) / (r_out - r_isco);
+            float hDisk = 0.028 + 0.048 * (rD - r_isco) / (r_out - r_isco);
             float vertDist = abs(pDisk.y);
             float densityProfile = exp(-0.5 * (vertDist * vertDist) / (hDisk * hDisk));
 
-            if (densityProfile > 0.01) {
+            if (densityProfile > 0.006) {
               float phi = atan(pDisk.z, pDisk.x);
-              float omega = (2.2 + uGravity * 3.5 + uSpin * 2.5) * pow(r_isco / rD, 1.48);
+              float omega = (2.4 + uGravity * 3.8 + uSpin * 2.8) * pow(r_isco / rD, 1.5);
               float rotAngle = phi - uTime * omega;
 
-              float v_orbit = clamp(0.56 * sqrt(0.5 * rs / rD) * (1.0 + 0.22 * uSpin), 0.08, 0.72);
+              float v_orbit = clamp(0.58 * sqrt(0.5 * rs / rD) * (1.0 + 0.25 * uSpin), 0.10, 0.76);
               vec3 orbTangentDisk = vec3(-sin(phi), 0.0, cos(phi));
               vec3 orbTangent = invTilt * orbTangentDisk;
 
@@ -415,30 +485,39 @@ function createRelativisticRaymarchedBlackHole() {
               float beta = v_orbit;
               float gamma = 1.0 / sqrt(max(0.001, 1.0 - beta * beta));
               float doppler = 1.0 / (gamma * (1.0 - beta * cosTheta));
-              float dopplerBoost = pow(clamp(doppler, 0.18, 4.0), 3.6);
+              float dopplerBoost = pow(clamp(doppler, 0.15, 4.2), 3.5);
 
-              float gravRedshift = sqrt(max(0.02, 1.0 - rs / rD));
+              float gravRedshift = sqrt(max(0.01, 1.0 - rs / rD));
 
-              vec2 noiseCoord = vec2(cos(rotAngle) * rD * 4.2, sin(rotAngle) * rD * 4.2);
-              float plasma = fbm(noiseCoord + vec2(rD * 2.5, uTime * 0.16));
-              float streaks = sin(phi * 26.0 - uTime * omega * 3.2 + rD * 32.0) * 0.5 + 0.5;
-              float density = densityProfile * (0.62 + plasma * 0.38 + streaks * 0.28);
+              vec2 noiseCoord = vec2(cos(rotAngle) * rD * 3.4, sin(rotAngle) * rD * 3.4);
+              float plasma = fbm(noiseCoord + vec2(rD * 2.2, uTime * 0.16));
+              float streaks = sin(phi * 16.0 - uTime * omega * 1.5 + rD * 7.2) * 0.5 + 0.5;
+              float density = densityProfile * (0.60 + plasma * 0.40 + streaks * 0.30);
 
-              float tempNorm = pow((r_out - rD) / (r_out - r_isco), 1.25) * gravRedshift;
+              float tempNorm = pow((r_out - rD) / (r_out - r_isco), 1.15) * gravRedshift;
               vec3 col = getBlackbodyColor(tempNorm, doppler);
 
-              float photonCaustic = exp(-pow((rD - r_isco) / 0.055, 2.0)) * 2.4;
-              col += vec3(1.0, 0.96, 0.88) * photonCaustic * dopplerBoost;
+              // Ultra-bright Inner Caustic
+              float iscoGlow = exp(-pow((rD - r_isco) / 0.055, 2.0)) * 3.2;
+              col += vec3(1.0, 0.98, 0.92) * iscoGlow * dopplerBoost;
 
-              float dTau = density * (0.90 + uGravity * 0.5) * uBrightness * dt * 16.0;
+              float dTau = density * (0.90 + uGravity * 0.6) * uBrightness * dt * 15.0;
               float stepTrans = exp(-dTau);
               vec3 emission = col * dopplerBoost * (1.0 - stepTrans);
 
               colAcc += emission * transmittance;
               transmittance *= stepTrans;
 
-              if (transmittance < 0.015) break;
+              if (transmittance < 0.01) break;
             }
+          }
+
+          // Thin Photon Sphere Ring (Caustic light looping at r ~ 1.5 rs)
+          if (dist > rh && dist < rh * 1.55) {
+            float rPh = rh * 1.25;
+            float phCaustic = exp(-pow((dist - rPh) / 0.038, 2.0)) * 0.45 * uBrightness;
+            vec3 phCol = vec3(1.0, 0.94, 0.85) * phCaustic;
+            colAcc += phCol * transmittance;
           }
 
           r = nextR;
@@ -448,9 +527,17 @@ function createRelativisticRaymarchedBlackHole() {
           gl_FragColor = vec4(colAcc, 1.0);
         } else {
           vec3 lensedStarfield = getCosmicStarfield(v);
-          vec3 finalCol = colAcc + lensedStarfield * transmittance;
-          float finalAlpha = clamp(1.0 - transmittance * 0.90 + length(colAcc) * 0.5, 0.0, 1.0);
-          gl_FragColor = vec4(finalCol, finalAlpha);
+          float edgeDist = length(vLocalPos);
+          float edgeFade = smoothstep(R_BOUND * 0.98, R_BOUND * 0.72, edgeDist);
+          
+          if (uIsSimulator > 0.5) {
+            vec3 finalCol = colAcc + lensedStarfield * transmittance;
+            gl_FragColor = vec4(finalCol, 1.0);
+          } else {
+            vec3 finalCol = colAcc + lensedStarfield * transmittance * 0.20;
+            float alpha = clamp(length(colAcc) * 1.3 + (1.0 - transmittance) * edgeFade, 0.0, 1.0);
+            gl_FragColor = vec4(finalCol, alpha);
+          }
         }
       }
     `
@@ -553,6 +640,167 @@ function createInfallingParticles(count = 850) {
   return points;
 }
 
+// 3. Relativistic Astrophysical Jets (Synchrotron Radiation & Plasma Outflow)
+function createRelativisticJets() {
+  const group = new THREE.Group();
+  
+  const jetLength = 7.5;
+  const coneGeo = new THREE.CylinderGeometry(0.04, 0.72, jetLength, 32, 16, true);
+  coneGeo.translate(0, jetLength * 0.5, 0);
+
+  const jetMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    uniforms: {
+      uTime: { value: 0 },
+      uGravity: { value: 0 },
+      uSpin: { value: 0.85 },
+      uIntensity: { value: 1.0 }
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vLocalPos;
+      void main() {
+        vUv = uv;
+        vLocalPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      uniform float uTime;
+      uniform float uGravity;
+      uniform float uSpin;
+      uniform float uIntensity;
+      varying vec2 vUv;
+      varying vec3 vLocalPos;
+
+      void main() {
+        float y = vUv.y;
+        float speed = 5.2 + uGravity * 6.5 + uSpin * 3.0;
+        
+        // Standing shock diamonds along relativistic jet spine
+        float shocks = pow(sin(y * 22.0 - uTime * speed * 0.4) * 0.5 + 0.5, 4.0) * 0.75;
+        
+        // Helical magnetic field twist
+        float angle = atan(vLocalPos.x, vLocalPos.z);
+        float helix = sin(angle * 2.0 + y * 16.0 - uTime * speed * 0.6) * 0.5 + 0.5;
+        
+        float rad = length(vLocalPos.xz);
+        float core = exp(-rad * rad * 24.0);
+        float sheath = (1.0 - y * 0.6) * (0.35 + helix * 0.45 + shocks);
+        
+        vec3 coreCol = vec3(0.65, 0.82, 1.0) * 2.8;
+        vec3 shockCol = vec3(0.92, 0.45, 1.0) * 2.0;
+        vec3 edgeCol = vec3(0.30, 0.92, 1.0);
+        
+        vec3 col = mix(edgeCol, shockCol, shocks);
+        col = mix(col, coreCol, core);
+        
+        float fade = smoothstep(0.01, 0.12, y) * smoothstep(1.0, 0.45, y);
+        float alpha = (core * 0.90 + sheath * 0.60) * fade * uIntensity * (0.85 + uGravity * 0.75);
+        
+        gl_FragColor = vec4(col * alpha, alpha);
+      }
+    `
+  });
+
+  const upperJet = new THREE.Mesh(coneGeo, jetMat);
+  const lowerJet = new THREE.Mesh(coneGeo, jetMat);
+  lowerJet.rotation.x = Math.PI;
+
+  group.add(upperJet);
+  group.add(lowerJet);
+
+  // Relativistic particle outflow stream
+  const pCount = 380;
+  const pGeo = new THREE.BufferGeometry();
+  const pPos = new Float32Array(pCount * 3);
+  const pSpeed = new Float32Array(pCount);
+  const pSeed = new Float32Array(pCount);
+  const pDir = new Float32Array(pCount);
+
+  for (let i = 0; i < pCount; i++) {
+    pSpeed[i] = 0.8 + Math.random() * 1.6;
+    pSeed[i] = Math.random();
+    pDir[i] = Math.random() > 0.5 ? 1.0 : -1.0;
+  }
+
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  pGeo.setAttribute('aSpeed', new THREE.BufferAttribute(pSpeed, 1));
+  pGeo.setAttribute('aSeed', new THREE.BufferAttribute(pSeed, 1));
+  pGeo.setAttribute('aDir', new THREE.BufferAttribute(pDir, 1));
+
+  const pMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uGravity: { value: 0 },
+      uIntensity: { value: 1.0 },
+      uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, 2) }
+    },
+    vertexShader: `
+      attribute float aSpeed;
+      attribute float aSeed;
+      attribute float aDir;
+      uniform float uTime;
+      uniform float uGravity;
+      uniform float uIntensity;
+      uniform float uPixelRatio;
+      varying float vAlpha;
+      varying vec3 vColor;
+
+      void main() {
+        float speed = (2.2 + uGravity * 4.5) * aSpeed;
+        float prog = fract(aSeed + uTime * speed * 0.15);
+        
+        float y = prog * 7.2 * aDir;
+        float r = 0.04 + pow(prog, 1.4) * 0.55;
+        float angle = aSeed * 6.28318 + uTime * 3.5 * aDir;
+        
+        vec3 p = vec3(cos(angle) * r, y, sin(angle) * r);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        
+        gl_PointSize = (3.5 + (1.0 - prog) * 4.5) * uPixelRatio * (1.2 / max(0.4, -mv.z));
+        vAlpha = smoothstep(0.02, 0.15, prog) * smoothstep(1.0, 0.65, prog) * uIntensity;
+        
+        vec3 colCore = vec3(0.7, 0.9, 1.0);
+        vec3 colTip = vec3(0.4, 0.65, 1.0);
+        vColor = mix(colCore, colTip, prog);
+      }
+    `,
+    fragmentShader: `
+      precision mediump float;
+      varying float vAlpha;
+      varying vec3 vColor;
+      void main() {
+        vec2 q = gl_PointCoord - 0.5;
+        float d = length(q);
+        if (d > 0.5) discard;
+        float a = smoothstep(0.5, 0.05, d) * vAlpha;
+        gl_FragColor = vec4(vColor * 1.5, a);
+      }
+    `
+  });
+
+  const pMesh = new THREE.Points(pGeo, pMat);
+  group.add(pMesh);
+
+  group.rotation.x = -0.38;
+
+  group.userData = {
+    jetMat,
+    pMat
+  };
+
+  return group;
+}
+
 // Assemble Complete Realistic Black Hole System
 function buildRealisticBlackHole() {
   const root = new THREE.Group();
@@ -570,10 +818,15 @@ function buildRealisticBlackHole() {
   particles.position.y = 0.78;
   root.add(particles);
 
+  const jets = createRelativisticJets();
+  jets.position.y = 0.78;
+  root.add(jets);
+
   root.userData = {
     core,
     rayVolume,
-    particles
+    particles,
+    jets
   };
   return root;
 }
@@ -614,29 +867,63 @@ function makeReticle() {
   return group;
 }
 
+// Procedural Deep Cosmic SkyDome with Volumetric Nebula & Star Clusters
+function buildCosmicSkyDome() {
+  const geo = new THREE.SphereGeometry(95, 48, 32);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    vertexShader: `
+      varying vec3 vWorldDir;
+      void main() {
+        vWorldDir = position;
+        gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      ${GLSL_COMMON_ASTRO}
+      ${GLSL_COSMIC_STARFIELD}
+      varying vec3 vWorldDir;
+      void main() {
+        vec3 dir = normalize(vWorldDir);
+        vec3 col = getCosmicStarfield(dir);
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.renderOrder = 0;
+  return mesh;
+}
+
 // Deep Space Starfield & Cosmic Nebula (for 3D Simulator mode & depth)
 function buildCosmicSpace() {
   const group = new THREE.Group();
 
+  // 1. Panoramic Seamless Cosmic SkyDome
+  const skyDome = buildCosmicSkyDome();
+  group.add(skyDome);
+
+  // 2. Parallax 3D Star Clusters
   const starGeo = new THREE.BufferGeometry();
-  const count = 1600;
+  const count = 1800;
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
 
   for (let i = 0; i < count; i++) {
-    const r = 25 + Math.random() * 50;
+    const r = 18 + Math.random() * 55;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(Math.random() * 2 - 1);
     positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
     positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
     positions[i * 3 + 2] = r * Math.cos(phi);
 
-    // Warm white, blue-white, and amber stars
     const type = Math.random();
     if (type > 0.8) {
-      colors[i * 3] = 0.75; colors[i * 3 + 1] = 0.85; colors[i * 3 + 2] = 1.0;
+      colors[i * 3] = 0.70; colors[i * 3 + 1] = 0.86; colors[i * 3 + 2] = 1.0;
     } else if (type > 0.6) {
-      colors[i * 3] = 1.0; colors[i * 3 + 1] = 0.82; colors[i * 3 + 2] = 0.55;
+      colors[i * 3] = 1.0; colors[i * 3 + 1] = 0.84; colors[i * 3 + 2] = 0.58;
     } else {
       colors[i * 3] = 0.95; colors[i * 3 + 1] = 0.95; colors[i * 3 + 2] = 0.95;
     }
@@ -646,21 +933,14 @@ function buildCosmicSpace() {
   starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
   const starMat = new THREE.PointsMaterial({
-    size: 0.18,
+    size: 0.16,
     vertexColors: true,
     transparent: true,
-    opacity: 0.85
+    opacity: 0.9
   });
 
   const stars = new THREE.Points(starGeo, starMat);
   group.add(stars);
-
-  // Virtual floor grid for AR simulation
-  const grid = new THREE.GridHelper(12, 24, 0x3d5485, 0x182440);
-  grid.position.y = 0;
-  grid.material.transparent = true;
-  grid.material.opacity = 0.35;
-  group.add(grid);
 
   group.visible = false;
   return group;
@@ -724,7 +1004,7 @@ function placeBlackHole() {
   if (!moving) return;
   if (mode === 'simulator' || reticle.visible) {
     if (mode === 'simulator') {
-      blackHole.position.set(0, 0.78, 0);
+      blackHole.position.set(0, 0, 0);
     } else {
       blackHole.position.copy(reticle.position);
     }
@@ -734,10 +1014,24 @@ function placeBlackHole() {
     moving = false;
     placed = true;
     if (placeBtn) placeBtn.hidden = true;
-    if (moveBtn) moveBtn.hidden = false;
+    if (moveBtn) moveBtn.hidden = (mode === 'simulator');
     if (pulseBtn) pulseBtn.hidden = false;
     const earthSimBtn = $('#earthSimBtn');
     if (earthSimBtn) earthSimBtn.style.display = 'block';
+    const labelToggleBtn = $('#labelToggleBtn');
+    if (labelToggleBtn) labelToggleBtn.style.display = 'block';
+    const soundToggleBtn = $('#soundToggleBtn');
+    if (soundToggleBtn) soundToggleBtn.style.display = 'block';
+    const cinemaBtn = $('#cinemaBtn');
+    if (cinemaBtn) cinemaBtn.style.display = (mode === 'simulator') ? 'block' : 'none';
+    const jetToggleBtn = $('#jetToggleBtn');
+    if (jetToggleBtn) jetToggleBtn.style.display = 'block';
+    const physicsBtn = $('#physicsBtn');
+    if (physicsBtn) physicsBtn.style.display = 'block';
+    const infoBtn = $('#infoBtn');
+    if (infoBtn) infoBtn.style.display = 'block';
+    const cinemaBar = $('#cinemaBar');
+    if (cinemaBar && mode === 'simulator') cinemaBar.style.display = 'flex';
     if (arUI) arUI.classList.remove('ready-to-place');
 
     if (hint) {
@@ -745,7 +1039,7 @@ function placeBlackHole() {
       hint.textContent = mode === 'xr'
         ? 'เดินเข้าใกล้เพื่อเพิ่มแรงโน้มถ่วง · ใช้สองนิ้วย่อ/ขยาย'
         : mode === 'simulator'
-          ? 'ลากหน้าจอเพื่อหมุนรอบหลุมดำ · ซูมเข้าใกล้เพื่อเพิ่มแรงโน้มถ่วง'
+          ? 'เลื่อนหน้าจอเพื่อหมุนมุมมอง • ซูมเข้าออกได้'
           : 'แตะค้างบนจอหรือกด “เร่งแรงดูด” · เดินเข้าใกล้หลุมดำ';
           
       // Auto-hide hint for Zero UI
@@ -833,7 +1127,7 @@ function updateGravity(activeCamera, dt) {
 
 function animateRealisticBlackHole(t, activeCamera) {
   if (!blackHole || !blackHole.visible) return;
-  const { core, rayVolume, particles } = blackHole.userData;
+  const { core, rayVolume, particles, jets } = blackHole.userData;
 
   // Transform camera position into raymarched volume local coordinates
   activeCamera.getWorldPosition(tmpCamPos);
@@ -848,12 +1142,28 @@ function animateRealisticBlackHole(t, activeCamera) {
     rayVolume.material.uniforms.uSpin.value = userSpin;
     rayVolume.material.uniforms.uBrightness.value = userBrightness;
     rayVolume.material.uniforms.uEnableLensing.value = enableLensingWarp ? 1.0 : 0.0;
+    rayVolume.material.uniforms.uIsSimulator.value = (mode === 'simulator' || mode === 'intro') ? 1.0 : 0.0;
   }
 
   // Update infalling matter particles
   if (particles?.material?.uniforms) {
     particles.material.uniforms.uTime.value = t;
     particles.material.uniforms.uGravity.value = gravity;
+  }
+
+  // Update Relativistic Polar Jets
+  if (jets?.userData) {
+    if (jets.userData.jetMat?.uniforms) {
+      jets.userData.jetMat.uniforms.uTime.value = t;
+      jets.userData.jetMat.uniforms.uGravity.value = gravity;
+      jets.userData.jetMat.uniforms.uSpin.value = userSpin;
+      jets.userData.jetMat.uniforms.uIntensity.value = jetEnabled ? 1.0 : 0.0;
+    }
+    if (jets.userData.pMat?.uniforms) {
+      jets.userData.pMat.uniforms.uTime.value = t;
+      jets.userData.pMat.uniforms.uGravity.value = gravity;
+      jets.userData.pMat.uniforms.uIntensity.value = jetEnabled ? 1.0 : 0.0;
+    }
   }
 }
 
@@ -872,10 +1182,12 @@ function renderCommon(activeCamera, now) {
 // -----------------------------------------------------------------------------
 // Spatial AR Labels Logic
 // -----------------------------------------------------------------------------
+let labelsVisible = false;
+
 const arLabels = {
-  horizon: { id: 'labelHorizon', offset: new THREE.Vector3(0.2, -0.2, 0), el: null },
-  disk: { id: 'labelDisk', offset: new THREE.Vector3(1.6, 0.1, 0), el: null },
-  photon: { id: 'labelPhoton', offset: new THREE.Vector3(-0.65, 0.45, 0), el: null }
+  horizon: { id: 'labelHorizon', offset: new THREE.Vector3(0.52, -0.32, 0), el: null },
+  disk: { id: 'labelDisk', offset: new THREE.Vector3(1.85, 0.15, 0), el: null },
+  photon: { id: 'labelPhoton', offset: new THREE.Vector3(-0.95, 0.65, 0), el: null }
 };
 
 function initARLabels() {
@@ -885,7 +1197,7 @@ function initARLabels() {
 }
 
 function updateARLabels(activeCamera) {
-  if (!blackHole || !blackHole.visible || moving) {
+  if (!blackHole || !blackHole.visible || moving || !labelsVisible) {
     for (const key in arLabels) {
       if (arLabels[key].el) arLabels[key].el.classList.remove('visible');
     }
@@ -958,7 +1270,46 @@ function renderXR(now, frame) {
   renderer.render(scene, camera);
 }
 
+function setCinematicView(viewName) {
+  cameraCinematicMode = viewName;
+  document.querySelectorAll('.cinema-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.view === viewName);
+  });
+
+  if (viewName === 'gargantua') {
+    targetTheta = 0.05;
+    targetPhi = 1.48;
+    targetRadius = 5.2;
+  } else if (viewName === 'jet') {
+    targetTheta = 0.0;
+    targetPhi = 0.32;
+    targetRadius = 4.8;
+  } else if (viewName === 'horizon') {
+    targetTheta = 0.38;
+    targetPhi = 1.35;
+    targetRadius = 2.45;
+  } else if (viewName === 'orbit') {
+    targetRadius = 5.2;
+  }
+}
+
 function renderSimulator(now) {
+  if (cameraCinematicMode === 'orbit') {
+    simOrbit.theta += 0.0032;
+    simOrbit.phi = 1.25 + Math.sin(now * 0.0006) * 0.15;
+    simOrbit.radius = THREE.MathUtils.lerp(simOrbit.radius, 5.2, 0.04);
+  } else if (cameraCinematicMode !== 'manual') {
+    simOrbit.theta = THREE.MathUtils.lerp(simOrbit.theta, targetTheta, 0.06);
+    simOrbit.phi = THREE.MathUtils.lerp(simOrbit.phi, targetPhi, 0.06);
+    simOrbit.radius = THREE.MathUtils.lerp(simOrbit.radius, targetRadius, 0.06);
+  }
+
+  // Calculate realistic distance-based gravity in simulator mode
+  if (mode === 'simulator') {
+    const distFromHorizon = Math.max(0.01, simOrbit.radius - 1.2);
+    gravityTarget = THREE.MathUtils.clamp(1.0 - (distFromHorizon - 0.5) / 4.0, 0.15, 1.0);
+  }
+
   updateSimulatorCamera();
   renderCommon(camera, now);
   renderer.render(scene, camera);
@@ -976,7 +1327,7 @@ function renderIntro(now) {
     const t = now * 0.0002;
     camera.position.x = Math.sin(t) * 0.8 + mouse.x * 0.4;
     camera.position.y = 0.78 + mouse.y * 0.4;
-    camera.position.z = Math.cos(t) * 0.8 + 3.5;
+    camera.position.z = Math.cos(t) * 0.8 + 5.2;
     camera.lookAt(0, 0.78, 0);
   } else if (mode === 'warp') {
     // Warp transition effect
@@ -998,11 +1349,11 @@ function startIntroMode() {
   mode = 'intro';
   buildScene();
   blackHole.visible = true;
-  blackHole.position.set(0, 0.78, 0); // Center it in front of camera
+  blackHole.position.set(0, 0, 0); // Center core at (0, 0.78, 0)
   gravityTarget = 0.5; // Give it some gravity to start bending light
   
   // Set initial cinematic camera
-  camera.position.set(0, 0.78, 4.0);
+  camera.position.set(0, 0.78, 5.2);
   camera.lookAt(0, 0.78, 0);
   
   renderer.setAnimationLoop(renderIntro);
@@ -1013,9 +1364,11 @@ function startIntroMode() {
 // -----------------------------------------------------------------------------
 function setupSimulatorControls() {
   const onPointerDown = (e) => {
-    if (mode !== 'simulator' || e.target.closest('button, .physics-panel, .info-drawer')) return;
+    if (mode !== 'simulator' || e.target.closest('button, .physics-panel, .info-drawer, .topbar, .earth-timeline, .cinema-bar')) return;
     simOrbit.isDragging = true;
     simOrbit.previousMousePosition = { x: e.clientX || e.touches?.[0]?.clientX || 0, y: e.clientY || e.touches?.[0]?.clientY || 0 };
+    cameraCinematicMode = 'manual';
+    document.querySelectorAll('.cinema-pill').forEach(p => p.classList.toggle('active', p.dataset.view === 'manual'));
   };
 
   const onPointerMove = (e) => {
@@ -1035,8 +1388,39 @@ function setupSimulatorControls() {
 
   const onWheel = (e) => {
     if (mode !== 'simulator') return;
-    simOrbit.radius = THREE.MathUtils.clamp(simOrbit.radius + e.deltaY * 0.003, 1.2, 7.5);
+    simOrbit.radius = THREE.MathUtils.clamp(simOrbit.radius + e.deltaY * 0.0035, 2.0, 9.5);
+    cameraCinematicMode = 'manual';
+    document.querySelectorAll('.cinema-pill').forEach(p => p.classList.toggle('active', p.dataset.view === 'manual'));
   };
+
+  // Two-finger pinch zoom on mobile
+  let touchPinchDist = 0;
+  window.addEventListener('touchstart', (e) => {
+    if (mode === 'simulator' && e.touches.length === 2) {
+      touchPinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      cameraCinematicMode = 'manual';
+      document.querySelectorAll('.cinema-pill').forEach(p => p.classList.toggle('active', p.dataset.view === 'manual'));
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (mode === 'simulator' && e.touches.length === 2 && touchPinchDist > 0) {
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const diff = touchPinchDist - d;
+      simOrbit.radius = THREE.MathUtils.clamp(simOrbit.radius + diff * 0.008, 2.0, 9.5);
+      touchPinchDist = d;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) touchPinchDist = 0;
+  }, { passive: true });
 
   window.addEventListener('mousedown', onPointerDown);
   window.addEventListener('mousemove', onPointerMove);
@@ -1063,13 +1447,32 @@ function startSimulatorMode() {
   if (feed) feed.style.display = 'none';
   if (simulatorStars) simulatorStars.visible = true;
 
+  // Reset orbit camera to perfectly framed default
+  simOrbit.radius = 5.2;
+  simOrbit.theta = 0.25;
+  simOrbit.phi = 1.25;
+  simOrbit.target.set(0, 0.78, 0);
+
+  camera.fov = 62;
+  camera.updateProjectionMatrix();
+
   // Seamless transition: Auto-place the black hole
   moving = true;
   placeBlackHole();
+
+  // Update simulator camera immediately
+  updateSimulatorCamera();
   
   renderer.setAnimationLoop(renderSimulator);
   setStatus('โหมดจำลอง 3D เสมือนจริง', true);
-  if (hint) hint.textContent = 'เลื่อนหน้าจอเพื่อหมุนมุมมอง • ซูมเข้าออกได้';
+  if (hint) {
+    hint.textContent = 'เลื่อนหน้าจอเพื่อหมุนมุมมอง • ซูมเข้าออกได้';
+    hint.style.opacity = '1';
+    setTimeout(() => {
+      hint.style.transition = 'opacity 1s ease';
+      hint.style.opacity = '0';
+    }, 3500);
+  }
   updateReady(true);
 }
 
@@ -1501,13 +1904,56 @@ function setupInteractiveUI() {
     });
   }
 
-  // Shoot probes on tap
+  // Shoot probes on tap (AR modes only, so dragging in simulator doesn't spawn probes)
   window.addEventListener('pointerdown', (e) => {
-    // Only shoot if in AR or Simulator and not interacting with UI
-    if ((mode !== 'xr' && mode !== 'fallback' && mode !== 'simulator') || !placed) return;
+    if ((mode !== 'xr' && mode !== 'fallback') || !placed) return;
     if (e.target.closest('button, .physics-panel, .info-drawer, .ar-label, .topbar')) return;
     shootProbe(e);
   });
+
+  // Spatial Labels Toggle
+  const labelToggleBtn = $('#labelToggleBtn');
+  if (labelToggleBtn) {
+    labelToggleBtn.addEventListener('click', () => {
+      labelsVisible = !labelsVisible;
+      labelToggleBtn.classList.toggle('active', labelsVisible);
+      labelToggleBtn.textContent = labelsVisible ? '🏷️ ซ่อนป้าย' : '🏷️ ป้ายกำกับ';
+      updateARLabels(camera);
+    });
+  }
+
+  // Sound Toggle
+  const soundToggleBtn = $('#soundToggleBtn');
+  if (soundToggleBtn) {
+    soundToggleBtn.addEventListener('click', toggleAudio);
+  }
+
+  // Cinematic Camera Toggle & Views
+  const cinemaBtn = $('#cinemaBtn');
+  const cinemaBar = $('#cinemaBar');
+  if (cinemaBtn) {
+    cinemaBtn.addEventListener('click', () => {
+      if (cinemaBar) {
+        cinemaBar.style.display = cinemaBar.style.display === 'none' ? 'flex' : 'none';
+      }
+    });
+  }
+
+  document.querySelectorAll('.cinema-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      setCinematicView(pill.dataset.view);
+    });
+  });
+
+  // Relativistic Jet Toggle
+  const jetToggleBtn = $('#jetToggleBtn');
+  if (jetToggleBtn) {
+    jetToggleBtn.addEventListener('click', () => {
+      jetEnabled = !jetEnabled;
+      jetToggleBtn.classList.toggle('active', jetEnabled);
+      jetToggleBtn.textContent = jetEnabled ? '⚡ ลำพลาสมา [เปิด]' : '⚡ ลำพลาสมา [ปิด]';
+    });
+  }
 
   // Physics Drawer & Inspector
   const physicsBtn = $('#physicsBtn');

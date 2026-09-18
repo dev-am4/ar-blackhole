@@ -38,10 +38,23 @@
         <button id="physicsBtn" class="action-pill" title="ปรับแต่งฟิสิกส์" style="display:none">⚙️</button>
         <button id="infoBtn" class="action-pill" title="ความรู้" style="display:none">🌌</button>
         <button id="videoBtn" class="action-pill" title="วิดีโอ" style="display:none">🎥</button>
+        <button id="soundToggleBtn" class="action-pill" title="เปิด/ปิด เสียงจักรวาล" style="display:none">🔊 เสียง</button>
+        <button id="cinemaBtn" class="action-pill" title="มุมมองภาพยนตร์" style="display:none">🎬 มุมมอง</button>
+        <button id="jetToggleBtn" class="action-pill active" title="เปิด/ปิด ลำแสงพลาสมา" style="display:none">⚡ ลำแสง</button>
+        <button id="labelToggleBtn" class="action-pill" title="เปิด/ปิด ป้ายกำกับ" style="display:none">🏷️ ป้ายกำกับ</button>
         <button id="earthSimBtn" class="action-pill" title="ทำลายโลก" style="display:none">🌍 จำลองดูดโลก</button>
         <button id="snapshotBtn" class="action-pill" title="ถ่ายภาพ">📸 ถ่ายภาพ</button>
         <button id="exitBtn" class="exit">ออก</button>
       </div>
+    </div>
+
+    <!-- Cinematic Camera View Bar -->
+    <div id="cinemaBar" class="cinema-bar" style="display:none">
+      <button class="cinema-pill active" data-view="manual" title="หมุนมุมมองอิสระ">🖐️ อิสระ</button>
+      <button class="cinema-pill" data-view="orbit" title="หมุนรอบหลุมดำอัตโนมัติ 360°">🎬 หมุนรอบ 360°</button>
+      <button class="cinema-pill" data-view="gargantua" title="มุมมองเส้นศูนย์สูตร Gargantua">🌀 Gargantua</button>
+      <button class="cinema-pill" data-view="jet" title="มุมมองจากยอดขั้วลำแสงพลาสมา">⚡ ขั้วลำแสง</button>
+      <button class="cinema-pill" data-view="horizon" title="ประชิดขอบฟ้าเหตุการณ์">🕳️ ขอบฟ้า</button>
     </div>
 
     <!-- Spatial AR Labels Container -->

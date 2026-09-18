@@ -38,9 +38,19 @@ canvas.gl{display:block}
 .status-dot.ready{background:var(--cyan);box-shadow:0 0 14px rgba(141,220,255,.95)}
 .status-text{font:600 10px ui-monospace,SFMono-Regular,monospace;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:35vw}
 
-.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:6px}
-.action-pill{min-height:38px;padding:6px 12px;border:1px solid var(--edge);border-radius:999px;background:var(--panel);color:var(--text);font-size:11.5px;font-weight:600;backdrop-filter:blur(12px);cursor:pointer;white-space:nowrap}
-.exit{min-height:38px;padding:6px 14px;border:1px solid var(--edge);border-radius:999px;background:var(--panel);color:var(--text);font-size:11.5px;font-weight:600;backdrop-filter:blur(12px);cursor:pointer}
+.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.topbar-actions::-webkit-scrollbar{display:none}
+.action-pill{min-height:38px;padding:6px 12px;border:1px solid var(--edge);border-radius:999px;background:var(--panel);color:var(--text);font-size:11.5px;font-weight:600;backdrop-filter:blur(12px);cursor:pointer;white-space:nowrap;transition:all 0.2s ease;flex-shrink:0}
+.action-pill.active{border-color:var(--cyan);background:rgba(141,220,255,.18);color:#fff;box-shadow:0 0 14px rgba(141,220,255,.3)}
+.action-pill.sound-active{border-color:#ffaa40;background:rgba(255,170,64,.18);color:#fff;box-shadow:0 0 14px rgba(255,170,64,.35)}
+.exit{min-height:38px;padding:6px 14px;border:1px solid var(--edge);border-radius:999px;background:var(--panel);color:var(--text);font-size:11.5px;font-weight:600;backdrop-filter:blur(12px);cursor:pointer;flex-shrink:0}
+
+/* Cinematic Camera Bar */
+.cinema-bar{position:absolute;z-index:25;top:calc(env(safe-area-inset-top) + 60px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid rgba(141,220,255,.35);border-radius:999px;background:rgba(4,8,22,.88);backdrop-filter:blur(16px);box-shadow:0 12px 32px rgba(0,0,0,.45);max-width:94vw;overflow-x:auto;scrollbar-width:none}
+.cinema-bar::-webkit-scrollbar{display:none}
+.cinema-pill{padding:6px 12px;border:1px solid transparent;border-radius:999px;background:rgba(255,255,255,.05);color:#b9c8e8;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s ease}
+.cinema-pill:hover{background:rgba(255,255,255,.12);color:#fff}
+.cinema-pill.active{border-color:var(--cyan);background:linear-gradient(135deg,rgba(141,220,255,.25),rgba(90,130,255,.2));color:#fff;box-shadow:0 0 14px rgba(141,220,255,.4)}
 
 .gravity-card{position:absolute;z-index:8;top:calc(env(safe-area-inset-top) + 68px);left:50%;width:min(88vw,420px);transform:translateX(-50%);padding:12px 14px;border:1px solid var(--edge);border-radius:18px;background:linear-gradient(135deg,rgba(5,8,19,.76),rgba(18,13,37,.68));backdrop-filter:blur(14px);box-shadow:0 14px 35px rgba(0,0,0,.22)}
 .gravity-head{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:11px;color:#c8d2e8}
