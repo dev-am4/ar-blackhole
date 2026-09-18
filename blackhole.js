@@ -1528,6 +1528,51 @@ function updateSimulatorCamera() {
   camera.lookAt(simOrbit.target);
 }
 
+function preparePlacementState({ simulator = false } = {}) {
+  moving = true;
+  placed = false;
+  reticleReady = simulator;
+
+  if (blackHole) blackHole.visible = false;
+  if (reticle) reticle.visible = false;
+
+  if (placeBtn) {
+    placeBtn.hidden = false;
+    placeBtn.disabled = !simulator;
+    placeBtn.classList.toggle('ready', simulator);
+    placeBtn.textContent = 'วางหลุมดำ';
+  }
+  if (moveBtn) moveBtn.hidden = true;
+  if (pulseBtn) pulseBtn.hidden = true;
+
+  const toolsBtn = $('#toolsBtn');
+  if (toolsBtn) {
+    toolsBtn.hidden = true;
+    toolsBtn.classList.remove('active');
+    toolsBtn.textContent = 'สำรวจ';
+  }
+  $('#toolTray')?.classList.remove('active');
+
+  ['#missionBtn','#experimentBtn','#earthSimBtn','#physicsBtn','#infoBtn','#videoBtn','#soundToggleBtn','#cinemaBtn','#jetToggleBtn','#labelToggleBtn']
+    .forEach((selector) => {
+      const el = $(selector);
+      if (el) el.style.display = 'none';
+    });
+
+  $('#missionPanel')?.classList.remove('active');
+  $('#experimentPanel')?.classList.remove('active');
+  $('#physicsPanel')?.classList.remove('active');
+  $('#infoDrawer')?.classList.remove('active');
+  $('#videoModal')?.classList.remove('active');
+  $('#cinemaBar')?.style && ($('#cinemaBar').style.display = 'none');
+
+  clearGravityLab();
+  cancelMission(false);
+  labelsVisible = false;
+  updateARLabels(camera);
+  pointerBoost = 0;
+}
+
 function startSimulatorMode() {
   mode = 'simulator';
   buildScene();
@@ -1548,26 +1593,19 @@ function startSimulatorMode() {
   camera.fov = 62;
   camera.updateProjectionMatrix();
 
-  // Seamless transition: Auto-place the black hole
-  moving = true;
-  placeBlackHole();
+  // Start with an empty scene. The visitor explicitly places the black hole.
+  preparePlacementState({ simulator:true });
 
   // Update simulator camera immediately
   updateSimulatorCamera();
-  
+
   renderer.setAnimationLoop(renderSimulator);
   if (hint) {
-    hint.textContent = 'เลื่อนหน้าจอเพื่อหมุนมุมมอง • ซูมเข้าออกได้';
+    hint.textContent = 'แตะ “วางหลุมดำ” เพื่อเริ่มการจำลอง';
+    hint.style.transition = 'none';
     hint.style.opacity = '1';
-    setTimeout(() => {
-      hint.style.transition = 'opacity 1s ease';
-      hint.style.opacity = '0';
-    }, 3500);
   }
-  // Do not call updateReady() after auto-placement: it belongs to the
-  // placement-reticle state and used to overwrite this with "จับพื้นได้แล้ว".
-  reticleReady = true;
-  setStatus('โหมดจำลอง 3D เสมือนจริง', true);
+  setStatus('พร้อมวางหลุมดำ', true);
 }
 
 // -----------------------------------------------------------------------------
@@ -1588,6 +1626,7 @@ function requestXRSession() {
 
 async function startXR(session) {
   mode = 'xr';
+  preparePlacementState({ simulator:false });
   renderer.xr.enabled = true;
   xrSession = session;
   renderer.xr.setReferenceSpaceType('local');
@@ -2283,6 +2322,7 @@ function updateGravityLab(dt, activeCamera) {
 
 async function startFallback(orientationGranted) {
   mode = 'fallback';
+  preparePlacementState({ simulator:false });
   stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
     audio: false
