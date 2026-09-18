@@ -1199,3 +1199,74 @@ html[data-experience="lab"] .hint{
     grid-template-columns:auto 1fr auto 1fr auto 1fr auto;
   }
 }
+
+
+/* ==========================================================================
+   V3.2 · Smooth interactive LAB camera
+   ========================================================================== */
+.experiment-head-actions{
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.lab-view-reset{
+  min-height:34px;
+  padding:6px 10px;
+  border:1px solid rgba(157,190,255,.16);
+  border-radius:999px;
+  background:rgba(255,255,255,.045);
+  color:#aebbd0;
+  font-size:9px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.lab-view-reset:active{
+  transform:scale(.97);
+}
+html[data-experience="lab"] .lab-view-reset{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+html[data-experience="lab"] canvas.gl{
+  cursor:grab;
+  touch-action:none;
+}
+html[data-experience="lab"] canvas.gl:active{
+  cursor:grabbing;
+}
+
+/* Let the user know the scene itself is interactive without adding another panel. */
+html[data-experience="lab"] .experiment-intro{
+  color:#9aa8c0;
+}
+html[data-experience="lab"] .experiment-intro::before{
+  content:"◌ ";
+  color:#8ddcff;
+}
+
+@media(max-width:700px){
+  .lab-view-reset{
+    min-height:32px;
+    padding:5px 8px;
+    font-size:8px;
+  }
+  html[data-experience="lab"] .experiment-head{
+    gap:8px;
+  }
+  html[data-experience="lab"] .experiment-head strong{
+    font-size:12px;
+  }
+}
+
+@media(max-width:390px){
+  .lab-view-reset{
+    padding-inline:7px;
+    font-size:0;
+  }
+  .lab-view-reset::after{
+    content:"↺";
+    font-size:14px;
+  }
+}
