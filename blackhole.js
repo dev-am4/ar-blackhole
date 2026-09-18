@@ -724,7 +724,7 @@ function placeBlackHole() {
   if (!moving) return;
   if (mode === 'simulator' || reticle.visible) {
     if (mode === 'simulator') {
-      blackHole.position.set(0, 0, -1.8);
+      blackHole.position.set(0, 0.78, 0);
     } else {
       blackHole.position.copy(reticle.position);
     }
@@ -736,6 +736,8 @@ function placeBlackHole() {
     if (placeBtn) placeBtn.hidden = true;
     if (moveBtn) moveBtn.hidden = false;
     if (pulseBtn) pulseBtn.hidden = false;
+    const earthSimBtn = $('#earthSimBtn');
+    if (earthSimBtn) earthSimBtn.style.display = 'block';
     if (arUI) arUI.classList.remove('ready-to-place');
 
     if (hint) {
@@ -760,6 +762,8 @@ function moveBlackHole() {
   moving = true;
   placed = false;
   blackHole.visible = false;
+  const earthSimBtn = $('#earthSimBtn');
+  if (earthSimBtn) earthSimBtn.style.display = 'none';
   if (hint) {
     hint.style.transition = 'none';
     hint.style.opacity = '1';
@@ -861,6 +865,7 @@ function renderCommon(activeCamera, now) {
   publishScreenAnchor(blackHole, activeCamera);
   updateARLabels(activeCamera);
   updateProbes(dt, activeCamera);
+  updateEarthSim(dt, activeCamera);
   updateHud(activeCamera);
 }
 
@@ -969,10 +974,10 @@ function renderIntro(now) {
   if (mode === 'intro') {
     // Cinematic slow orbit & parallax
     const t = now * 0.0002;
-    camera.position.x = Math.sin(t) * 1.5 + mouse.x * 0.5;
-    camera.position.y = EYE_HEIGHT + mouse.y * 0.5;
-    camera.position.z = Math.cos(t) * 1.5 + 4.5;
-    camera.lookAt(0, EYE_HEIGHT, 0);
+    camera.position.x = Math.sin(t) * 0.8 + mouse.x * 0.4;
+    camera.position.y = 0.78 + mouse.y * 0.4;
+    camera.position.z = Math.cos(t) * 0.8 + 3.5;
+    camera.lookAt(0, 0.78, 0);
   } else if (mode === 'warp') {
     // Warp transition effect
     camera.position.z *= 0.92; // Zoom in fast
@@ -993,12 +998,12 @@ function startIntroMode() {
   mode = 'intro';
   buildScene();
   blackHole.visible = true;
-  blackHole.position.set(0, EYE_HEIGHT, 0); // Center it in front of camera
+  blackHole.position.set(0, 0.78, 0); // Center it in front of camera
   gravityTarget = 0.5; // Give it some gravity to start bending light
   
   // Set initial cinematic camera
-  camera.position.set(0, EYE_HEIGHT, 5.0);
-  camera.lookAt(0, EYE_HEIGHT, 0);
+  camera.position.set(0, 0.78, 4.0);
+  camera.lookAt(0, 0.78, 0);
   
   renderer.setAnimationLoop(renderIntro);
 }
@@ -1058,9 +1063,13 @@ function startSimulatorMode() {
   if (feed) feed.style.display = 'none';
   if (simulatorStars) simulatorStars.visible = true;
 
+  // Seamless transition: Auto-place the black hole
+  moving = true;
+  placeBlackHole();
+  
   renderer.setAnimationLoop(renderSimulator);
   setStatus('โหมดจำลอง 3D เสมือนจริง', true);
-  if (hint) hint.textContent = 'แตะ “วางหลุมดำ” เพื่อเริ่มสำรวจในอวกาศจำลอง';
+  if (hint) hint.textContent = 'เลื่อนหน้าจอเพื่อหมุนมุมมอง • ซูมเข้าออกได้';
   updateReady(true);
 }
 
@@ -1096,6 +1105,159 @@ async function startXR(session) {
   renderer.setAnimationLoop(renderXR);
   setStatus('WebXR พร้อมใช้งาน', false);
   if (hint) hint.textContent = 'เล็งกล้องลงพื้นที่โล่ง แล้วขยับช้า ๆ';
+}
+
+// -----------------------------------------------------------------------------
+// Interactive Earth Infall Simulation
+// -----------------------------------------------------------------------------
+let earthSim = null;
+let earthStage = -1;
+
+function startEarthSimulation() {
+  if (!placed || earthSim || !blackHole) return;
+  
+  const geo = new THREE.SphereGeometry(0.12 * baseScale, 32, 32);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      time: { value: 0 },
+      stretch: { value: 1.0 },
+      redshift: { value: 0.0 }
+    },
+    vertexShader: `
+      uniform float stretch;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      void main() {
+        vUv = uv;
+        vNormal = normal;
+        vec3 p = position;
+        p.y *= stretch;
+        p.x /= sqrt(stretch);
+        p.z /= sqrt(stretch);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float time;
+      uniform float redshift;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      
+      float random(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p); vec2 f = fract(p);
+        float a = random(i); float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0)); float d = random(i + vec2(1.0, 1.0));
+        vec2 u = f*f*(3.0-2.0*f);
+        return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+      }
+      
+      void main() {
+        float n = noise(vUv * 15.0 + time * 0.1);
+        vec3 ocean = vec3(0.02, 0.15, 0.5);
+        vec3 land = vec3(0.1, 0.45, 0.2);
+        vec3 col = mix(ocean, land, smoothstep(0.4, 0.55, n));
+        
+        float clouds = noise(vUv * 25.0 - time * 0.05);
+        col = mix(col, vec3(0.9, 0.95, 1.0), smoothstep(0.6, 0.8, clouds) * 0.6);
+        
+        vec3 redCol = vec3(dot(col, vec3(0.33)) * 0.8, 0.05, 0.0);
+        col = mix(col, redCol, redshift);
+        
+        float diff = max(dot(normalize(vNormal), vec3(1.0, 0.5, 1.0)), 0.15);
+        gl_FragColor = vec4(col * diff * (1.0 - redshift * 0.8), 1.0);
+      }
+    `,
+    transparent: true
+  });
+  
+  const mesh = new THREE.Mesh(geo, mat);
+  scene.add(mesh);
+  
+  earthSim = {
+    mesh,
+    angle: 0,
+    radius: 3.5 * baseScale,
+    life: 0
+  };
+  
+  earthStage = -1;
+  const tl = document.getElementById('earthTimeline');
+  if (tl) tl.classList.add('visible');
+}
+
+function updateEarthSim(dt) {
+  if (!earthSim || !blackHole || !blackHole.visible) return;
+  
+  earthSim.life += dt;
+  earthSim.mesh.material.uniforms.time.value = earthSim.life;
+  
+  const rs = 0.38 * userMass * baseScale;
+  
+  const distRatio = Math.max(0.01, earthSim.radius / rs);
+  earthSim.angle += (1.0 / distRatio) * dt * 1.5;
+  earthSim.radius -= (0.1 / distRatio) * dt * (userMass * 0.6);
+  
+  const corePos = new THREE.Vector3();
+  blackHole.userData.core.getWorldPosition(corePos);
+  
+  const rx = Math.cos(earthSim.angle) * earthSim.radius;
+  const rz = Math.sin(earthSim.angle) * earthSim.radius;
+  const ry = Math.sin(earthSim.angle * 0.4) * 0.2 * earthSim.radius;
+  
+  earthSim.mesh.position.set(corePos.x + rx, corePos.y + ry, corePos.z + rz);
+  
+  const dirToCore = corePos.clone().sub(earthSim.mesh.position).normalize();
+  earthSim.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dirToCore);
+  
+  const title = document.getElementById('etTitle');
+  const desc = document.getElementById('etDesc');
+  
+  const stageTriggers = [
+    { dist: 2.8 * rs, title: "🌍 1. โลกหลุดเข้าสู่วงโคจร", desc: "แรงโน้มถ่วงมหาศาลเริ่มดึงดูดโลกของเราให้หมุนวนเข้าไปในหลุมดำ" },
+    { dist: 1.8 * rs, title: "🌪️ 2. แรงไทดัลฉีกเปลือกโลก", desc: "ความโน้มถ่วงที่กระทำต่อโลกสองด้านไม่เท่ากัน เปลือกโลกเริ่มแตกและมหาสมุทรเดือด" },
+    { dist: 1.2 * rs, title: "🍝 3. สปาเกตตีฟิเคชัน (Spaghettification)", desc: "มวลของโลกถูกแรงโน้มถ่วงฉีกและดึงยืดออกเป็นเส้นก๋วยเตี๋ยวอย่างรุนแรง" },
+    { dist: 0.8 * rs, title: "🔴 4. ปรากฏการณ์เรดชิฟต์ (Redshift)", desc: "เวลาเดินช้าลงอย่างสุดขั้ว แสงสูญเสียพลังงานจนโลกเปลี่ยนเป็นสีแดงคล้ำ" },
+    { dist: 0.45 * rs, title: "🕳️ 5. ขอบฟ้าเหตุการณ์ (Event Horizon)", desc: "จุดที่ไม่มีสิ่งใดหนีออกมาได้ โลกหายไปจากเอกภพของเราตลอดกาล..." }
+  ];
+  
+  let currentStage = -1;
+  for (let i = stageTriggers.length - 1; i >= 0; i--) {
+    if (earthSim.radius <= stageTriggers[i].dist) {
+      currentStage = i;
+      break;
+    }
+  }
+  
+  if (currentStage > earthStage) {
+    earthStage = currentStage;
+    if (title && desc) {
+      title.textContent = stageTriggers[currentStage].title;
+      desc.textContent = stageTriggers[currentStage].desc;
+    }
+  }
+  
+  if (earthSim.radius < 1.4 * rs) {
+    const stretch = 1.0 + Math.pow(1.4 * rs / Math.max(earthSim.radius, 0.1), 4.0);
+    earthSim.mesh.material.uniforms.stretch.value = Math.min(stretch, 25.0);
+  }
+  
+  if (earthSim.radius < 1.0 * rs) {
+    const redshift = 1.0 - (earthSim.radius / rs);
+    earthSim.mesh.material.uniforms.redshift.value = Math.min(redshift * 1.5, 1.0);
+  }
+  
+  if (earthSim.radius < 0.38 * rs) {
+    scene.remove(earthSim.mesh);
+    earthSim.mesh.geometry.dispose();
+    earthSim.mesh.material.dispose();
+    earthSim = null;
+    
+    setTimeout(() => {
+      const tl = document.getElementById('earthTimeline');
+      if (tl) tl.classList.remove('visible');
+    }, 4000);
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -1298,6 +1460,12 @@ function setupInteractiveUI() {
         startSimulatorMode();
       }, 1000);
     });
+  }
+
+  // Earth Sim
+  const earthSimBtn = $('#earthSimBtn');
+  if (earthSimBtn) {
+    earthSimBtn.addEventListener('click', startEarthSimulation);
   }
 
   // Snapshot functionality

@@ -38,12 +38,18 @@
         <button id="physicsBtn" class="action-pill" title="ปรับแต่งฟิสิกส์" style="display:none">⚙️</button>
         <button id="infoBtn" class="action-pill" title="ความรู้" style="display:none">🌌</button>
         <button id="videoBtn" class="action-pill" title="วิดีโอ" style="display:none">🎥</button>
+        <button id="earthSimBtn" class="action-pill" title="ทำลายโลก" style="display:none">🌍 จำลองดูดโลก</button>
         <button id="snapshotBtn" class="action-pill" title="ถ่ายภาพ">📸 ถ่ายภาพ</button>
         <button id="exitBtn" class="exit">ออก</button>
       </div>
     </div>
 
     <!-- Spatial AR Labels Container -->
+    <div id="earthTimeline" class="earth-timeline">
+      <h3 id="etTitle"></h3>
+      <p id="etDesc"></p>
+    </div>
+
     <div id="arLabels" class="ar-labels-container">
       <div id="labelHorizon" class="ar-label">
         <div class="ar-label-dot"></div><div class="ar-label-line"></div>
@@ -93,18 +99,6 @@
       </div>
     </div>
 
-    <!-- Video Modal -->
-    <div id="videoModal" class="video-modal interactive-ui" aria-label="วิดีโอการทำงานของหลุมดำ">
-      <div class="modal-header">
-        <h3>NASA Black Hole Simulation</h3>
-        <button id="closeVideoBtn" class="close-drawer-btn" aria-label="ปิด">✕</button>
-      </div>
-      <div class="modal-body">
-        <iframe id="youtubeIframe" src="" title="NASA Black Hole Video" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
-        <p class="video-desc">วิดีโอจำลองความสมจริงจากซูเปอร์คอมพิวเตอร์ของ NASA แสดงพฤติกรรมของแสงและแรงโน้มถ่วงรอบขอบฟ้าเหตุการณ์</p>
-      </div>
-    </div>
-
     <!-- Educational Scientific Anatomy Drawer -->
     <aside id="infoDrawer" class="info-drawer interactive-ui" aria-label="ความรู้ทางฟิสิกส์ดาราศาสตร์">
       <div class="drawer-header">
@@ -142,6 +136,18 @@
       <button id="moveBtn" class="btn" hidden>ย้ายตำแหน่ง</button>
     </div>
   </section>
+
+  <!-- Video Modal -->
+  <div id="videoModal" class="video-modal interactive-ui" aria-label="วิดีโอการทำงานของหลุมดำ">
+    <div class="modal-header">
+      <h3>NASA Black Hole Simulation</h3>
+      <button id="closeVideoBtn" class="close-drawer-btn" aria-label="ปิด">✕</button>
+    </div>
+    <div class="modal-body">
+      <iframe id="youtubeIframe" src="" title="NASA Black Hole Video" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+      <p class="video-desc">วิดีโอจำลองความสมจริงจากซูเปอร์คอมพิวเตอร์ของ NASA แสดงพฤติกรรมของแสงและแรงโน้มถ่วงรอบขอบฟ้าเหตุการณ์</p>
+    </div>
+  </div>
 
   <section id="message">
     <div class="message-box">
