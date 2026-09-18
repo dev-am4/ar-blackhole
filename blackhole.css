@@ -459,3 +459,261 @@ canvas.gl{display:block}
   .mission-hud{top:calc(env(safe-area-inset-top) + 62px);left:50%;right:auto;width:min(92vw,360px);transform:translate(-50%,-8px)}
   .mission-hud.active{transform:translate(-50%,0)}
 }
+
+
+/* --------------------------------------------------------------------------
+   V2.4 Mobile-first interaction & performance
+   -------------------------------------------------------------------------- */
+html[data-device="mobile"],
+html[data-device="mobile"] body{
+  height:100dvh;
+  min-height:100dvh;
+}
+html[data-device="mobile"] #intro,
+html[data-device="mobile"] #ar{
+  height:100dvh;
+  min-height:100dvh;
+}
+html[data-device="mobile"] canvas.gl{
+  touch-action:none;
+}
+
+/* Avoid expensive live blur on mobile GPUs. */
+html[data-device="mobile"] .topbar,
+html[data-device="mobile"] .tool-tray,
+html[data-device="mobile"] .mission-panel,
+html[data-device="mobile"] .experiment-panel,
+html[data-device="mobile"] .physics-panel,
+html[data-device="mobile"] .mission-hud,
+html[data-device="mobile"] .info-drawer,
+html[data-device="mobile"] .video-modal,
+html[data-device="mobile"] .hint,
+html[data-device="mobile"] .btn,
+html[data-device="mobile"] .action-pill{
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+
+@media(max-width:700px){
+  .topbar{
+    min-height:54px;
+    padding:calc(env(safe-area-inset-top) + 8px) 9px 16px;
+    gap:7px;
+  }
+  .status-dot{width:7px;height:7px}
+  .status-text{
+    display:block;
+    max-width:34vw;
+    font-size:8.5px;
+    letter-spacing:.035em;
+  }
+  .topbar-actions{gap:5px}
+  .topbar .action-pill,
+  .topbar .exit{
+    min-height:40px;
+    padding:7px 11px;
+    font-size:10.5px;
+    background:rgba(4,8,18,.9);
+  }
+
+  .dock{
+    gap:7px;
+    padding:9px 9px calc(env(safe-area-inset-bottom) + 10px);
+    background:linear-gradient(to top,rgba(0,1,6,.96) 10%,rgba(0,1,6,.68) 64%,transparent);
+  }
+  .dock .btn{
+    flex:1 1 0;
+    min-width:0;
+    min-height:52px;
+    padding:9px 8px;
+    font-size:12px;
+    white-space:nowrap;
+  }
+  .dock .btn.hero{
+    width:100%;
+    min-width:0;
+    min-height:56px;
+    font-size:15px;
+  }
+  #placeBtn{flex-basis:100%}
+
+  .hint{
+    bottom:calc(env(safe-area-inset-bottom) + 74px);
+    max-width:calc(100vw - 24px);
+    padding:7px 11px;
+    font-size:10px;
+    background:rgba(3,7,16,.9);
+  }
+
+  /* Explore tools: readable 2-column touch grid above the dock. */
+  .tool-tray{
+    left:9px;
+    right:9px;
+    bottom:calc(env(safe-area-inset-bottom) + 74px);
+    width:auto;
+    max-height:46dvh;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    justify-content:stretch;
+    gap:7px;
+    overflow-y:auto;
+    padding:10px;
+    border-radius:18px;
+    background:rgba(3,7,18,.97);
+    transform:translateY(14px) scale(.985);
+  }
+  .tool-tray.active{transform:translateY(0) scale(1)}
+  .tool-tray .action-pill{
+    width:100%;
+    min-height:46px;
+    padding:8px 7px;
+    justify-content:center;
+    text-align:center;
+    font-size:10px;
+    background:rgba(255,255,255,.055);
+  }
+
+  /* Bottom sheets stay above the primary dock so the close/toggle control remains reachable. */
+  .physics-panel,
+  .mission-panel,
+  .experiment-panel{
+    top:auto;
+    left:9px;
+    right:9px;
+    bottom:calc(env(safe-area-inset-bottom) + 74px);
+    width:auto;
+    max-height:62dvh;
+    overflow-y:auto;
+    border-radius:20px;
+    background:rgba(4,8,20,.98);
+    transform:translateY(16px) scale(.985);
+  }
+  .physics-panel.active,
+  .mission-panel.active,
+  .experiment-panel.active{
+    transform:translateY(0) scale(1);
+  }
+
+  .physics-panel{padding:13px}
+  .control-row{gap:8px;font-size:11px}
+  .control-row input[type="range"]{min-height:30px}
+  .control-row-toggle{min-height:42px}
+
+  .mission-panel,
+  .experiment-panel{padding:11px}
+  .mission-list{gap:7px}
+  .mission-card{
+    min-height:64px;
+    grid-template-columns:35px 1fr auto;
+    padding:8px 9px;
+  }
+  .mission-card strong{font-size:11px}
+  .mission-card small{font-size:8.5px}
+  .experiment-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px;
+    overflow:visible;
+  }
+  .experiment-object{
+    min-height:68px;
+    padding:7px 4px;
+  }
+  .experiment-object:nth-child(4),
+  .experiment-object:nth-child(5){
+    grid-column:span 1;
+  }
+
+  .mission-hud{
+    top:calc(env(safe-area-inset-top) + 58px);
+    left:9px;
+    right:9px;
+    width:auto;
+    transform:translateY(-8px);
+    padding:9px 10px;
+    background:rgba(3,7,18,.95);
+  }
+  .mission-hud.active{transform:translateY(0)}
+  .mission-hud>p{font-size:8.5px}
+
+  .info-drawer{
+    inset:auto 0 0 0;
+    width:100%;
+    max-height:78dvh;
+    border-left:0;
+    border-top:1px solid var(--edge);
+    border-radius:22px 22px 0 0;
+    transform:translateY(100%);
+    background:rgba(4,7,18,.985);
+  }
+  .info-drawer.active{transform:translateY(0)}
+  .drawer-header{
+    padding:14px 14px 10px;
+  }
+  .drawer-content{
+    padding:12px 12px calc(env(safe-area-inset-bottom) + 20px);
+  }
+
+  .video-modal{
+    top:auto;
+    left:8px;
+    right:8px;
+    bottom:calc(env(safe-area-inset-bottom) + 8px);
+    width:auto;
+    max-height:82dvh;
+    transform:translateY(22px) scale(.985);
+    border-radius:20px;
+    background:rgba(4,8,20,.99);
+  }
+  .video-modal.active{transform:translateY(0) scale(1)}
+  .modal-header{padding:12px 13px}
+  .modal-body{padding:12px;gap:10px}
+  .video-desc{font-size:10.5px}
+
+  .cinema-bar{
+    top:calc(env(safe-area-inset-top) + 57px);
+    max-width:calc(100vw - 16px);
+    gap:4px;
+    padding:5px;
+  }
+  .cinema-pill{
+    min-height:38px;
+    padding:6px 9px;
+    font-size:9.5px;
+  }
+
+  .earth-timeline{
+    bottom:calc(env(safe-area-inset-bottom) + 82px);
+    width:calc(100vw - 18px);
+    padding:15px;
+  }
+  .earth-timeline h3{font-size:14px}
+  .earth-timeline p{font-size:11px}
+
+  .ar-label-text{font-size:8.5px}
+  .ar-label-line{width:14px}
+}
+
+/* Small phones: reduce nonessential copy and keep controls thumb-friendly. */
+@media(max-width:390px){
+  .status-text{max-width:29vw;font-size:8px}
+  .topbar .action-pill,
+  .topbar .exit{padding-inline:9px;font-size:10px}
+  .dock .btn{font-size:11px}
+  .tool-tray{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tool-tray .action-pill{font-size:9.5px}
+  .experiment-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .experiment-object small{display:none}
+  .mission-panel-intro,
+  .experiment-intro{display:none}
+}
+
+/* Landscape phones need shallow sheets and more horizontal space. */
+@media(max-width:900px) and (orientation:landscape){
+  .tool-tray{grid-template-columns:repeat(4,minmax(0,1fr));max-height:34dvh}
+  .physics-panel,.mission-panel,.experiment-panel{max-height:55dvh}
+  .info-drawer{max-height:86dvh}
+  .mission-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .mission-card{grid-template-columns:32px 1fr}
+  .mission-card i{display:none}
+}
