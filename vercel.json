@@ -16,9 +16,9 @@
       ]
     },
     {
-      "source": "/(index.html|blackhole.js|blackhole.css)",
+      "source": "/(index.html|blackhole.js|blackhole.css|wow-layer.js|wow.css|anchor-hook.js|cinematic-video.js|cinematic-video.css)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=60, s-maxage=3600, stale-while-revalidate=86400" }
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     },
     {
