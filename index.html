@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#02040a">
-  <meta name="description" content="AR Black Hole สถานีที่ 5 ใน Space Mission Interactive Zone ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์">
-  <title>AR Black Hole · Zone 5 Space Mission · นครสวรรค์</title>
+  <meta name="description" content="Black Hole AR สื่อเสริมการเรียนรู้ Zone 2 · Big Bang Dome ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์">
+  <title>Black Hole Experience · Zone 2 Big Bang Dome · นครสวรรค์</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="/blackhole.css">
   <link rel="stylesheet" href="/wow.css">
@@ -14,38 +14,39 @@
   <video id="feed" playsinline muted autoplay></video>
   <div id="hud"></div>
 
-  <main id="intro">
+  <main id="intro" aria-label="Black Hole Experience">
     <div class="intro-shell">
-      <div class="badge-minimal">นิทรรศการ · ศูนย์วิทยาศาสตร์นครสวรรค์</div>
-
-      <h1 class="title-minimal">Black Hole Simulator<br><span>แบบจำลองฟิสิกส์หลุมดำสมจริง 3 มิติ</span></h1>
-
-      <div class="intro-actions-minimal">
-        <button id="startBtn" class="btn-ar">เปิดกล้อง AR สำรวจในพื้นที่จริง</button>
-        <button id="simIntroBtn" class="btn-3d">เข้าสู่โหมดจำลอง 3D Simulator</button>
-        <button id="introVideoBtn" class="btn-video">🎥 ชมวิดีโออธิบายการทำงาน</button>
-      </div>
+      <div class="badge-minimal">ZONE 2 · BIG BANG DOME · LEARNING EXTENSION</div>
+      <div class="intro-kicker">EXTREME GRAVITY EXPERIENCE</div>
+      <h1 class="title-minimal">BLACK HOLE</h1>
+      <p class="intro-line">เข้าใกล้บริเวณที่แรงโน้มถ่วงรุนแรงจนแม้แต่แสงก็ไม่สามารถกลับออกมาได้</p>
+      <div class="intro-status"><i></i><span id="modeHint">ระบบจะเลือก AR หรือ 3D ให้เหมาะกับอุปกรณ์ของคุณ</span></div>
+      <button id="startBtn" class="btn-ar">เริ่มสำรวจ</button>
+      <button id="simIntroBtn" class="mode-link">ใช้โหมดจำลอง 3D</button>
     </div>
+    <div class="intro-orbit" aria-hidden="true"></div>
   </main>
 
-  <section id="ar" aria-label="AR Black Hole · Station 5 · Space Mission Interactive Zone">
+  <section id="ar" aria-label="Black Hole AR · Zone 2 · Big Bang Dome Learning Extension">
     <div id="flashOverlay" class="flash-overlay"></div>
     <div class="topbar">
       <span id="statusDot" class="status-dot"></span>
       <span id="statusText" class="status-text">กำลังเตรียม</span>
       <div class="topbar-actions">
-        <!-- Hidden in minimal mode, but keep in DOM for logic -->
-        <button id="physicsBtn" class="action-pill" title="ปรับแต่งฟิสิกส์" style="display:none">⚙️</button>
-        <button id="infoBtn" class="action-pill" title="ความรู้" style="display:none">🌌</button>
-        <button id="videoBtn" class="action-pill" title="วิดีโอ" style="display:none">🎥</button>
-        <button id="soundToggleBtn" class="action-pill" title="เปิด/ปิด เสียงจักรวาล" style="display:none">🔊 เสียง</button>
-        <button id="cinemaBtn" class="action-pill" title="มุมมองภาพยนตร์" style="display:none">🎬 มุมมอง</button>
-        <button id="jetToggleBtn" class="action-pill active" title="เปิด/ปิด ลำแสงพลาสมา" style="display:none">⚡ ลำแสง</button>
-        <button id="labelToggleBtn" class="action-pill" title="เปิด/ปิด ป้ายกำกับ" style="display:none">🏷️ ป้ายกำกับ</button>
-        <button id="earthSimBtn" class="action-pill" title="ทำลายโลก" style="display:none">🌍 จำลองดูดโลก</button>
-        <button id="snapshotBtn" class="action-pill" title="ถ่ายภาพ">📸 ถ่ายภาพ</button>
+        <button id="snapshotBtn" class="action-pill" title="ถ่ายและแชร์ภาพ">📸 ถ่ายภาพ</button>
         <button id="exitBtn" class="exit">ออก</button>
       </div>
+    </div>
+
+    <div id="toolTray" class="tool-tray interactive-ui" aria-label="เครื่องมือสำรวจหลุมดำ">
+      <button id="physicsBtn" class="action-pill" title="ปรับแบบจำลอง" style="display:none">⚙️ ฟิสิกส์</button>
+      <button id="infoBtn" class="action-pill" title="เรียนรู้โครงสร้าง" style="display:none">◎ โครงสร้าง</button>
+      <button id="soundToggleBtn" class="action-pill" title="เปิดหรือปิดเสียง" style="display:none">🔊 เสียง</button>
+      <button id="cinemaBtn" class="action-pill" title="เปลี่ยนมุมมอง" style="display:none">◉ มุมมอง</button>
+      <button id="jetToggleBtn" class="action-pill active" title="เปิดหรือปิดลำพลาสมา" style="display:none">⚡ ลำพลาสมา</button>
+      <button id="labelToggleBtn" class="action-pill" title="เปิดหรือปิดป้ายกำกับ" style="display:none">⌖ ป้ายกำกับ</button>
+      <button id="earthSimBtn" class="action-pill" title="ทดลองแรงไทดัลกับโลก" style="display:none">🌍 ทดลองกับโลก</button>
+      <button id="videoBtn" class="action-pill" title="ชมวิดีโออ้างอิง" style="display:none">▶ วิดีโอ</button>
     </div>
 
     <!-- Cinematic Camera View Bar -->
@@ -98,7 +99,7 @@
           <input type="range" id="massSlider" min="0.5" max="2.0" step="0.05" value="1.0">
         </label>
         <label class="control-row">
-          <span>ความเร็วการหมุน (Spin $a/M$):</span>
+          <span>ความเร็วการหมุน (Spin a/M):</span>
           <input type="range" id="spinSlider" min="0.2" max="0.99" step="0.01" value="0.85">
         </label>
         <label class="control-row">
@@ -125,7 +126,7 @@
         </article>
         <article class="info-item">
           <h4>2. วงแหวนโฟตอน (Photon Sphere)</h4>
-          <p>อยู่ที่ระยะ $1.5 R_s$ เป็นวงโคจรไม่เสถียรที่อนุภาคแสง (โฟตอน) เดินทางเป็นวงกลมรอบหลุมดำ ก่อให้เกิดวงแหวนแสงที่มีความเข้มข้นสูงสุด</p>
+          <p>สำหรับหลุมดำที่ไม่หมุน วงโคจรโฟตอนอยู่ที่ประมาณ 1.5 เท่าของรัศมีชวาร์ซชิลด์ ส่วนหลุมดำที่หมุน ตำแหน่งวงโคจรของแสงจะเปลี่ยนตามความเร็วและทิศทางการหมุน</p>
         </article>
         <article class="info-item">
           <h4>3. จานสะสมมวล (Accretion Disk)</h4>
@@ -137,7 +138,7 @@
         </article>
         <article class="info-item">
           <h4>5. เลนส์ความโน้มถ่วง (Gravitational Lensing)</h4>
-          <p>มวลมหาศาลทำให้กาล-อวกาศโค้งงอ แสงจากด้านหลังของจานสะสมมวลจึงถูกหักเหอ้อมขึ้นมาด้านบนและด้านล่างของขอบฟ้าเหตุการณ์ ปรากฏเป็นภาพวงโค้งประกบอันเป็นเอกลักษณ์ (คล้ายหลุมดำ Gargantua ใน Interstellar)</p>
+          <p>มวลมหาศาลทำให้กาล-อวกาศโค้งงอ แสงจากด้านหลังของจานสะสมมวลจึงถูกเบนเส้นทางและอาจปรากฏเป็นวงโค้งเหนือและใต้เงาหลุมดำ</p>
         </article>
       </div>
     </aside>
@@ -147,6 +148,7 @@
       <button id="placeBtn" class="btn hero" disabled>วางหลุมดำ</button>
       <button id="pulseBtn" class="btn" hidden>เร่งแรงดูด</button>
       <button id="moveBtn" class="btn" hidden>ย้ายตำแหน่ง</button>
+      <button id="toolsBtn" class="btn tool-trigger" hidden>สำรวจ</button>
     </div>
   </section>
 

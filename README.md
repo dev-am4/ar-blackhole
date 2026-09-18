@@ -23,12 +23,14 @@ Black Hole AR ใช้เป็นกิจกรรมต่อยอดหล
 
 1. ผู้ชมออกจาก/ต่อยอดจากประสบการณ์ **Big Bang Dome**
 2. สแกน QR หรือเปิด Black Hole AR บนมือถือ
-3. แตะ **เปิดกล้อง · สำรวจหลุมดำ**
+3. แตะ **เริ่มสำรวจ** เพียงครั้งเดียว ระบบจะเลือก AR หรือ 3D Simulator ตามอุปกรณ์
 4. ระบบจับพื้นด้วย WebXR hit-test บน Android หรือใช้กล้อง + ไจโรเป็น fallback
 5. ผู้ชมวางหลุมดำลงบนพื้นที่จริง
 6. Android WebXR: เดินเข้าใกล้แล้ว Gravity Field เพิ่มขึ้นตามระยะ
 7. iPhone/fallback: แตะค้างหรือกด **เร่งแรงดูด** เพื่อเพิ่ม interaction
 8. Accretion disk, halo และอนุภาคตอบสนองแบบ realtime
+9. ปุ่ม **สำรวจ** เปิดเครื่องมือฟิสิกส์ โครงสร้าง ป้ายกำกับ มุมมอง และการทดลองกับโลก
+10. ปุ่ม **ถ่ายภาพ** รองรับ Native Share บนอุปกรณ์ที่รองรับ
 
 ## Experience Positioning
 
@@ -118,3 +120,13 @@ vercel deploy --prod
 HUD จะแสดง mode, placement state, gravity, camera/core position และ scale
 
 หากกล้องไม่เปิด ให้เปิด `/diag.html` เพื่อตรวจ secure context, camera API, WebXR และ motion sensor support
+
+
+## V2 Exhibition Mode
+
+- หน้าแรกเป็น Attract Screen ที่ใช้หลุมดำ 3D เป็นภาพหลักและมี CTA เดียว
+- Desktop เลือก 3D Simulator อัตโนมัติ ส่วนมือถือพยายามใช้ WebXR/Camera AR ก่อน
+- cinematic layer โหลดหลังผู้ชมเริ่มประสบการณ์เพื่อลด initial load
+- เปิด `?kiosk=1` สำหรับโหมดนิทรรศการ: ซ่อนปุ่มออกและ reset กลับหน้า Attract หลังไม่มี interaction 45 วินาที
+- เครื่องมือขั้นสูงถูกรวมในปุ่ม `สำรวจ` เพื่อลด UI ที่บังหลุมดำ
+- ข้อความ Photon Orbit แยกกรณีหลุมดำไม่หมุนกับหลุมดำหมุนเพื่อไม่ให้ค่า 1.5 Rs ถูกใช้เหมารวมกับ Kerr black hole

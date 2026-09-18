@@ -1,6 +1,6 @@
 const ASSET = '/blackhole_24s.webp?v=7';
-const SIZE = 300;
-const FRAME_MS = 83;
+const SIZE = 256;
+const FRAME_MS = 125;
 
 const arRoot = document.querySelector('#ar') || document.body;
 let source = null;

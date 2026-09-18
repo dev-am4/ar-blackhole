@@ -21,8 +21,53 @@ const messageTitle = $('#messageTitle');
 const messageText = $('#messageText');
 const retryBtn = $('#retryBtn');
 
-const DEBUG = new URLSearchParams(location.search).has('debug');
+const PARAMS = new URLSearchParams(location.search);
+const DEBUG = PARAMS.has('debug');
+const KIOSK = PARAMS.has('kiosk');
 if (DEBUG && hud) hud.classList.add('on');
+if (KIOSK) document.documentElement.dataset.kiosk = '1';
+
+const prefersDesktopSimulator = () =>
+  matchMedia('(pointer:fine)').matches &&
+  !matchMedia('(pointer:coarse)').matches &&
+  !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+let cinematicLoadPromise = null;
+function ensureCinematicLayer() {
+  if (cinematicLoadPromise || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return cinematicLoadPromise || Promise.resolve();
+  }
+  cinematicLoadPromise = new Promise((resolve) => {
+    if (!document.querySelector('link[data-cinematic]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/cinematic-video.css?v=2';
+      link.dataset.cinematic = '1';
+      document.head.appendChild(link);
+    }
+    if (document.querySelector('script[data-cinematic]')) return resolve();
+    const script = document.createElement('script');
+    script.src = '/cinematic-video.js?v=2';
+    script.dataset.cinematic = '1';
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.body.appendChild(script);
+  });
+  return cinematicLoadPromise;
+}
+
+let kioskIdleTimer = 0;
+function resetKioskIdle() {
+  if (!KIOSK) return;
+  clearTimeout(kioskIdleTimer);
+  if (mode === 'intro' || mode === 'warp') return;
+  kioskIdleTimer = setTimeout(() => location.reload(), 45000);
+}
+['pointerdown','touchstart','keydown'].forEach((name) => {
+  addEventListener(name, (e) => {
+    if (e.isTrusted) resetKioskIdle();
+  }, { capture:true, passive:name !== 'keydown' });
+});
 
 // Application & 3D state
 let renderer, scene, camera, reticle, blackHole, simulatorStars;
@@ -1030,8 +1075,14 @@ function placeBlackHole() {
     if (physicsBtn) physicsBtn.style.display = 'block';
     const infoBtn = $('#infoBtn');
     if (infoBtn) infoBtn.style.display = 'block';
+    const videoBtn = $('#videoBtn');
+    if (videoBtn) videoBtn.style.display = 'block';
+    const toolsBtn = $('#toolsBtn');
+    if (toolsBtn) toolsBtn.hidden = false;
+    ensureCinematicLayer();
+    resetKioskIdle();
     const cinemaBar = $('#cinemaBar');
-    if (cinemaBar && mode === 'simulator') cinemaBar.style.display = 'flex';
+    if (cinemaBar) cinemaBar.style.display = 'none';
     if (arUI) arUI.classList.remove('ready-to-place');
 
     if (hint) {
@@ -1065,6 +1116,13 @@ function moveBlackHole() {
   if (placeBtn) placeBtn.hidden = false;
   if (moveBtn) moveBtn.hidden = true;
   if (pulseBtn) pulseBtn.hidden = true;
+  const toolsBtn = $('#toolsBtn');
+  const toolTray = $('#toolTray');
+  if (toolsBtn) {
+    toolsBtn.hidden = true;
+    toolsBtn.classList.remove('active');
+  }
+  toolTray?.classList.remove('active');
   pointerBoost = 0;
   updateReady(false);
   if (hint) hint.textContent = 'เล็งกล้องลงพื้นที่โล่ง แล้วขยับช้า ๆ';
@@ -1619,9 +1677,9 @@ function updateEarthSim(dt) {
   const stageTriggers = [
     { dist: 2.8 * rs, title: "🌍 1. โลกหลุดเข้าสู่วงโคจร", desc: "แรงโน้มถ่วงมหาศาลเริ่มดึงดูดโลกของเราให้หมุนวนเข้าไปในหลุมดำ" },
     { dist: 1.8 * rs, title: "🌪️ 2. แรงไทดัลฉีกเปลือกโลก", desc: "ความโน้มถ่วงที่กระทำต่อโลกสองด้านไม่เท่ากัน เปลือกโลกเริ่มแตกและมหาสมุทรเดือด" },
-    { dist: 1.2 * rs, title: "🍝 3. สปาเกตตีฟิเคชัน (Spaghettification)", desc: "มวลของโลกถูกแรงโน้มถ่วงฉีกและดึงยืดออกเป็นเส้นก๋วยเตี๋ยวอย่างรุนแรง" },
-    { dist: 0.8 * rs, title: "🔴 4. ปรากฏการณ์เรดชิฟต์ (Redshift)", desc: "เวลาเดินช้าลงอย่างสุดขั้ว แสงสูญเสียพลังงานจนโลกเปลี่ยนเป็นสีแดงคล้ำ" },
-    { dist: 0.45 * rs, title: "🕳️ 5. ขอบฟ้าเหตุการณ์ (Event Horizon)", desc: "จุดที่ไม่มีสิ่งใดหนีออกมาได้ โลกหายไปจากเอกภพของเราตลอดกาล..." }
+    { dist: 1.6 * rs, title: "🍝 3. แรงไทดัลและ Spaghettification", desc: "ความต่างของแรงโน้มถ่วงระหว่างด้านใกล้และด้านไกลทำให้วัตถุถูกยืดตามแนวเข้าหาหลุมดำ" },
+    { dist: 1.3 * rs, title: "🔴 4. Gravitational Redshift", desc: "สำหรับผู้สังเกตที่อยู่ไกล แสงจากวัตถุที่เข้าใกล้ขอบฟ้าเหตุการณ์จะเลื่อนไปทางความถี่ต่ำลงและจางลง" },
+    { dist: 1.0 * rs, title: "🕳️ 5. ขอบฟ้าเหตุการณ์ (Event Horizon)", desc: "เมื่อผ่านขอบฟ้าเหตุการณ์แล้ว ไม่มีสัญญาณหรือแสงจากวัตถุนั้นสามารถส่งกลับออกมาถึงผู้สังเกตภายนอกได้" }
   ];
   
   let currentStage = -1;
@@ -1640,17 +1698,18 @@ function updateEarthSim(dt) {
     }
   }
   
-  if (earthSim.radius < 1.4 * rs) {
+  if (earthSim.radius < 1.6 * rs) {
     const stretch = 1.0 + Math.pow(1.4 * rs / Math.max(earthSim.radius, 0.1), 4.0);
     earthSim.mesh.material.uniforms.stretch.value = Math.min(stretch, 25.0);
   }
   
-  if (earthSim.radius < 1.0 * rs) {
-    const redshift = 1.0 - (earthSim.radius / rs);
-    earthSim.mesh.material.uniforms.redshift.value = Math.min(redshift * 1.5, 1.0);
+  if (earthSim.radius < 1.5 * rs) {
+    const ratio = Math.max(1.001, earthSim.radius / rs);
+    const redshift = 1.0 - Math.sqrt(Math.max(0.001, 1.0 - 1.0 / ratio));
+    earthSim.mesh.material.uniforms.redshift.value = Math.min(redshift, 1.0);
   }
   
-  if (earthSim.radius < 0.38 * rs) {
+  if (earthSim.radius < 0.98 * rs) {
     scene.remove(earthSim.mesh);
     earthSim.mesh.geometry.dispose();
     earthSim.mesh.material.dispose();
@@ -1779,10 +1838,14 @@ async function launch() {
   if (launching) return;
   launching = true;
   audio = initAudio();
-  const orientationPromise = requestOrientation();
-  const xrSessionPromise = requestXRSession();
+  ensureCinematicLayer();
+
+  const desktopSimulator = prefersDesktopSimulator();
+  const orientationPromise = desktopSimulator ? Promise.resolve('denied') : requestOrientation();
+  const xrSessionPromise = desktopSimulator ? Promise.resolve(null) : requestXRSession();
+
   startBtn.disabled = true;
-  startBtn.textContent = 'เตรียมเข้าสู่อวกาศ...';
+  startBtn.textContent = desktopSimulator ? 'กำลังเปิด 3D Simulator...' : 'กำลังเปิดประสบการณ์ AR...';
 
   // Trigger Warp Effect
   mode = 'warp';
@@ -1805,6 +1868,11 @@ async function launch() {
       // Reset camera from warp
       camera.fov = 62;
       camera.updateProjectionMatrix();
+
+      if (desktopSimulator) {
+        startSimulatorMode();
+        return;
+      }
 
       const session = await xrSessionPromise;
       if (session) {
@@ -1845,6 +1913,7 @@ function setupInteractiveUI() {
   if (simIntroBtn) {
     simIntroBtn.addEventListener('click', () => {
       audio = initAudio();
+      ensureCinematicLayer();
       
       mode = 'warp';
       intro.style.opacity = '0';
@@ -1865,42 +1934,105 @@ function setupInteractiveUI() {
     });
   }
 
+  const toolsBtn = $('#toolsBtn');
+  const toolTray = $('#toolTray');
+  if (toolsBtn && toolTray) {
+    toolsBtn.addEventListener('click', () => {
+      const open = !toolTray.classList.contains('active');
+      toolTray.classList.toggle('active', open);
+      toolsBtn.classList.toggle('active', open);
+      toolsBtn.textContent = open ? 'ปิดเครื่องมือ' : 'สำรวจ';
+      resetKioskIdle();
+    });
+  }
+
   // Earth Sim
   const earthSimBtn = $('#earthSimBtn');
   if (earthSimBtn) {
     earthSimBtn.addEventListener('click', startEarthSimulation);
   }
 
-  // Snapshot functionality
+  // Snapshot + native share functionality
   const snapshotBtn = $('#snapshotBtn');
   const flashOverlay = $('#flashOverlay');
   if (snapshotBtn) {
-    snapshotBtn.addEventListener('click', () => {
-      // Hide UI
-      document.querySelector('.topbar').style.display = 'none';
-      document.getElementById('arLabels').style.display = 'none';
-      
-      // Wait a frame for UI to hide, then capture
-      setTimeout(() => {
-        const canvas = renderer.domElement;
-        const imgData = canvas.toDataURL('image/png');
-        
-        // Show flash
-        if (flashOverlay) {
-          flashOverlay.classList.add('active');
-          setTimeout(() => flashOverlay.classList.remove('active'), 50);
+    snapshotBtn.addEventListener('click', async () => {
+      const topbar = document.querySelector('.topbar');
+      const labels = document.getElementById('arLabels');
+      const tray = document.getElementById('toolTray');
+      const dock = document.querySelector('.dock');
+      const old = {
+        topbar: topbar?.style.display || '',
+        labels: labels?.style.display || '',
+        tray: tray?.style.display || '',
+        dock: dock?.style.display || ''
+      };
+
+      if (topbar) topbar.style.display = 'none';
+      if (labels) labels.style.display = 'none';
+      if (tray) tray.style.display = 'none';
+      if (dock) dock.style.display = 'none';
+
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      try {
+        const out = document.createElement('canvas');
+        out.width = Math.max(1, Math.floor(innerWidth * Math.min(devicePixelRatio || 1, 2)));
+        out.height = Math.max(1, Math.floor(innerHeight * Math.min(devicePixelRatio || 1, 2)));
+        const ctx = out.getContext('2d');
+        const scale = out.width / innerWidth;
+        ctx.scale(scale, scale);
+
+        if (mode === 'fallback' && feed?.videoWidth) {
+          const vw = feed.videoWidth, vh = feed.videoHeight;
+          const cover = Math.max(innerWidth / vw, innerHeight / vh);
+          const dw = vw * cover, dh = vh * cover;
+          ctx.drawImage(feed, (innerWidth - dw) / 2, (innerHeight - dh) / 2, dw, dh);
+        } else {
+          ctx.fillStyle = '#02040a';
+          ctx.fillRect(0, 0, innerWidth, innerHeight);
         }
 
-        // Restore UI
-        document.querySelector('.topbar').style.display = 'flex';
-        document.getElementById('arLabels').style.display = 'block';
+        ctx.drawImage(renderer.domElement, 0, 0, innerWidth, innerHeight);
 
-        // Trigger download
-        const link = document.createElement('a');
-        link.download = 'blackhole_snapshot.png';
-        link.href = imgData;
-        link.click();
-      }, 50);
+        const grad = ctx.createLinearGradient(0, innerHeight - 100, 0, innerHeight);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,.58)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, innerHeight - 100, innerWidth, 100);
+        ctx.fillStyle = 'rgba(255,255,255,.9)';
+        ctx.font = '600 11px system-ui,sans-serif';
+        ctx.fillText('BLACK HOLE · NAKHON SAWAN SCIENCE CENTER', 18, innerHeight - 18);
+
+        const blob = await new Promise((resolve) => out.toBlob(resolve, 'image/png', .96));
+        if (!blob) throw new Error('capture failed');
+
+        const file = new File([blob], 'black-hole-experience.png', { type:'image/png' });
+        if (navigator.share && navigator.canShare?.({ files:[file] })) {
+          await navigator.share({
+            files:[file],
+            title:'Black Hole Experience',
+            text:'Black Hole · Nakhon Sawan Science Center'
+          }).catch(() => {});
+        } else {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.download = 'black-hole-experience.png';
+          link.href = url;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+      } finally {
+        if (topbar) topbar.style.display = old.topbar;
+        if (labels) labels.style.display = old.labels;
+        if (tray) tray.style.display = old.tray;
+        if (dock) dock.style.display = old.dock;
+        if (flashOverlay) {
+          flashOverlay.classList.add('active');
+          setTimeout(() => flashOverlay.classList.remove('active'), 70);
+        }
+        resetKioskIdle();
+      }
     });
   }
 

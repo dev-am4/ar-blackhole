@@ -1,7 +1,7 @@
 {
   "name": "ar-blackhole",
   "version": "1.0.0",
-  "description": "AR Black Hole · Zone 5 Space Mission · นครสวรรค์",
+  "description": "Black Hole Experience · Zone 2 Big Bang Dome · Nakhon Sawan",
   "type": "module",
   "main": "server.js",
   "scripts": {
