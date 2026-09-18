@@ -188,3 +188,17 @@ The simulator opens directly with the black hole already present. Visitors choos
 The existing Gravity Lab engine supplies stage-by-stage educational readouts while the selected object moves through the gravitational field.
 
 Legacy Mission Mode, Physics sliders, Cinema controls, labels, plasma toggles, and reference video remain in the codebase for rollback/operator development but are removed from the public visitor flow.
+
+
+## V3.3 — Original Reactive Cinematic Score
+
+The exhibit uses an original procedural WebAudio score rather than a sampled film soundtrack.
+
+- sustained organ-like harmonic bed with no copied melody
+- deep sub-bass and filtered air texture
+- slow cinematic pulse
+- generated reverb impulse
+- AR story intensity follows star → collapse → black hole → accretion → lensing → horizon
+- Lab intensity follows far → gravity → tidal → event horizon
+- Event Horizon triggers a short low-frequency swell
+- sound starts only after the visitor's entry gesture and can be muted from the top bar
