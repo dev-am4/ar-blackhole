@@ -147,6 +147,8 @@ let audio = null;
 let soundEnabled = true;
 let audioNarrativeIntensity = 0.18;
 let audioPhase = 'ambient';
+let audioDuckUntil = 0;
+let arHorizonDuckDone = false;
 let jetEnabled = true;
 let cameraCinematicMode = 'manual';
 let targetTheta = 0.25;
@@ -306,6 +308,23 @@ function initAudio() {
       return {o,g};
     });
 
+    // Upper register fades in only as tension rises.
+    const highRegisterGain = ctx.createGain();
+    highRegisterGain.gain.value = .0001;
+    highRegisterGain.connect(organFilter);
+    const highFreqs = [293.66, 440.0];
+    const highOscs = highFreqs.map((freq,i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = i === 0 ? 'sine' : 'triangle';
+      o.frequency.value = freq;
+      o.detune.value = i === 0 ? -3 : 4;
+      g.gain.value = i === 0 ? .20 : .08;
+      o.connect(g).connect(highRegisterGain);
+      o.start();
+      return {o,g};
+    });
+
     const sub = ctx.createOscillator();
     const subGain = ctx.createGain();
     sub.type = 'sine';
@@ -359,7 +378,7 @@ function initAudio() {
     const pulseTimer=setInterval(pulse,1250);
 
     ctx.resume().catch(()=>{});
-    return {ctx,master,dry,wet,convolver,organGain,organFilter,organOscs,sub,subGain,airFilter,airGain,pulseTimer};
+    return {ctx,master,dry,wet,convolver,organGain,organFilter,organOscs,highRegisterGain,highOscs,sub,subGain,airFilter,airGain,pulseTimer};
   } catch {
     return null;
   }
@@ -399,23 +418,50 @@ function toggleAudio() {
   syncSoundButton();
 }
 
-function triggerHorizonSwell() {
+function triggerCollapseImpact() {
   if(!audio || !soundEnabled) return;
   const {ctx,dry,convolver}=audio;
   const now=ctx.currentTime;
+  const osc=ctx.createOscillator();
+  const gain=ctx.createGain();
+  osc.type='sine';
+  osc.frequency.setValueAtTime(72,now);
+  osc.frequency.exponentialRampToValueAtTime(28,now+.65);
+  gain.gain.setValueAtTime(.0001,now);
+  gain.gain.exponentialRampToValueAtTime(.13,now+.025);
+  gain.gain.exponentialRampToValueAtTime(.0001,now+.9);
+  osc.connect(gain);
+  gain.connect(dry);
+  gain.connect(convolver);
+  osc.start(now);
+  osc.stop(now+.95);
+}
+
+function prepareHorizonSilence(duration=.72) {
+  if(!audio || !soundEnabled) return;
+  const now=audio.ctx.currentTime;
+  audioDuckUntil=Math.max(audioDuckUntil,now+duration);
+  audio.master.gain.cancelScheduledValues(now);
+  audio.master.gain.setTargetAtTime(.0035,now,.09);
+}
+
+function triggerHorizonSwell(delay=0) {
+  if(!audio || !soundEnabled) return;
+  const {ctx,dry,convolver}=audio;
+  const now=ctx.currentTime+Math.max(0,delay);
   const o=ctx.createOscillator();
   const g=ctx.createGain();
   o.type='triangle';
-  o.frequency.setValueAtTime(92,now);
-  o.frequency.exponentialRampToValueAtTime(31,now+2.4);
+  o.frequency.setValueAtTime(88,now);
+  o.frequency.exponentialRampToValueAtTime(29,now+2.5);
   g.gain.setValueAtTime(.0001,now);
-  g.gain.exponentialRampToValueAtTime(.11,now+.38);
-  g.gain.exponentialRampToValueAtTime(.0001,now+2.7);
+  g.gain.exponentialRampToValueAtTime(.13,now+.42);
+  g.gain.exponentialRampToValueAtTime(.0001,now+2.8);
   o.connect(g);
   g.connect(dry);
   g.connect(convolver);
   o.start(now);
-  o.stop(now+2.8);
+  o.stop(now+2.9);
 }
 
 function setAudioPhase(phase) {
@@ -433,7 +479,11 @@ function setAudioPhase(phase) {
     horizon:1.0
   };
   audioNarrativeIntensity=map[phase] ?? .3;
-  if(phase==='horizon') triggerHorizonSwell();
+  if(phase==='collapse') triggerCollapseImpact();
+  if(phase==='horizon') {
+    const delay = audio?.ctx ? Math.max(0,audioDuckUntil-audio.ctx.currentTime) : 0;
+    triggerHorizonSwell(delay);
+  }
   updateAudio(gravity);
 }
 
@@ -447,8 +497,14 @@ function updateAudio(strength) {
   const t=audio.ctx.currentTime;
   const intensity=Math.max(.12,Math.min(1,Math.max(strength*.72,audioNarrativeIntensity)));
   const volume=.028 + intensity*.052;
-  audio.master.gain.setTargetAtTime(volume,t,.28);
+  const ducking = t < audioDuckUntil;
+  audio.master.gain.setTargetAtTime(ducking ? .0035 : volume,t,ducking ? .06 : .28);
   audio.organGain.gain.setTargetAtTime(.025 + intensity*.052,t,.45);
+  audio.highRegisterGain?.gain.setTargetAtTime(
+    Math.max(.0001,(intensity-.42)*.052),
+    t,
+    .55
+  );
   audio.subGain.gain.setTargetAtTime(.026 + intensity*.075,t,.32);
   audio.organFilter.frequency.setTargetAtTime(720 + intensity*1280,t,.5);
   audio.airFilter.frequency.setTargetAtTime(420 + intensity*1050,t,.4);
@@ -1302,6 +1358,7 @@ function startARStory() {
   arStoryStart = performance.now();
   arStoryRunning = true;
   arStoryStage = -1;
+  arHorizonDuckDone = false;
   setARStoryStage(0);
   setAudioPhase('star');
 
@@ -1374,6 +1431,11 @@ function updateARStory(now) {
 
   if (t >= 11 && blackHole.userData.particles) blackHole.userData.particles.visible = true;
   if (t >= 16) enableLensingWarp = true;
+
+  if (t >= 20.15 && !arHorizonDuckDone) {
+    arHorizonDuckDone = true;
+    prepareHorizonSilence(.72);
+  }
 
   if (t >= 25) finishARStory();
 }
@@ -2768,7 +2830,8 @@ function launchGravityLab(type) {
     trail,
     trailPoints:[],
     baseSize:baseScale * visualScale,
-    phase:'far'
+    phase:'far',
+    horizonDuckDone:false
   };
   labObjects.push(item);
 
@@ -2870,6 +2933,10 @@ function updateGravityLab(dt, activeCamera) {
     // Smoothstep-like easing slows the first half and gives time to read.
     const raw = THREE.MathUtils.clamp(item.life / item.duration,0,1);
     const progress = raw * raw * (3 - 2 * raw);
+    if (progress >= .81 && !item.horizonDuckDone) {
+      item.horizonDuckDone = true;
+      prepareHorizonSilence(.66);
+    }
     const point = item.curve.getPoint(progress);
     const ahead = item.curve.getPoint(Math.min(1,progress + .012));
     item.root.position.copy(point);

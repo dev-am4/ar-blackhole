@@ -7,7 +7,7 @@
   <meta name="description" content="Black Hole AR สื่อเสริมการเรียนรู้ Zone 2 · Big Bang Dome ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์">
   <title>Black Hole Experience · Zone 2 Big Bang Dome · นครสวรรค์</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="/blackhole.css?v=20260918-lab32">
+  <link rel="stylesheet" href="/blackhole.css?v=20260918-v34">
   <link rel="stylesheet" href="/wow.css?v=20260918-fix1">
 </head>
 <body>
@@ -16,33 +16,33 @@
 
   <main id="intro" aria-label="Black Hole Experience">
     <div class="intro-shell">
-      <div class="badge-minimal">ZONE 2 · BIG BANG DOME · LEARNING EXTENSION</div>
-      <div class="intro-kicker">EXTREME GRAVITY EXPERIENCE</div>
-      <h1 class="title-minimal">BLACK HOLE</h1>
-      <p class="intro-line">เข้าใกล้บริเวณที่แรงโน้มถ่วงรุนแรงจนแม้แต่แสงก็ไม่สามารถกลับออกมาได้</p>
-      <div class="intro-status"><i></i><span id="modeHint">เลือกวิธีสำรวจหลุมดำ</span></div>
-
-      <div class="mode-choice-grid" aria-label="เลือกโหมดการใช้งาน">
-        <button id="startBtn" class="mode-card mode-card-camera">
-          <span class="mode-icon">◉</span>
-          <span class="mode-copy">
-            <strong>AR · วางหลุมดำตรงหน้า</strong>
-            <small>เปิดกล้องหลัง วางหลุมดำ และดูการก่อตัวของหลุมดำมวลดาวฤกษ์แบบสั้น ๆ</small>
-          </span>
-          <i>เปิดกล้อง</i>
-        </button>
-
-        <button id="simIntroBtn" class="mode-card mode-card-simulator">
-          <span class="mode-icon">✦</span>
-          <span class="mode-copy">
-            <strong>BLACK HOLE LAB</strong>
-            <small>ปล่อยโลก ดาวฤกษ์ ดาวเทียม ดาวหาง หรือลำแสง เพื่อเรียนรู้สิ่งที่เกิดขึ้นแต่ละช่วง</small>
-          </span>
-          <i>เข้าแบบจำลอง</i>
-        </button>
+      <div class="intro-identity">
+        <div class="badge-minimal">ZONE 2 · BIG BANG DOME</div>
+        <h1 class="title-minimal">BLACK HOLE</h1>
+        <p class="intro-line">วางหลุมดำในโลกจริง หรือทดลองแรงโน้มถ่วงด้วยตัวคุณเอง</p>
       </div>
 
-      <p class="mode-note">AR ใช้กล้องหลังจริง · LAB ไม่ใช้กล้อง</p>
+      <div class="mode-choice-grid" aria-label="เลือกโหมดการใช้งาน">
+        <button
+          id="startBtn"
+          class="mode-card mode-card-camera"
+          aria-label="AR วางหลุมดำ ใช้กล้องหลังจริงและดูการก่อตัวของหลุมดำ"
+        >
+          <span class="mode-icon">◉</span>
+          <span class="mode-copy"><strong>AR · วางหลุมดำ</strong></span>
+          <i>กล้องจริง</i>
+        </button>
+
+        <button
+          id="simIntroBtn"
+          class="mode-card mode-card-simulator"
+          aria-label="Black Hole Lab แบบจำลองสำหรับปล่อยวัตถุและเรียนรู้แรงโน้มถ่วง"
+        >
+          <span class="mode-icon">✦</span>
+          <span class="mode-copy"><strong>LAB · ทดลองวัตถุ</strong></span>
+          <i>แบบจำลอง</i>
+        </button>
+      </div>
     </div>
     <div class="intro-orbit" aria-hidden="true"></div>
   </main>
@@ -309,7 +309,7 @@
   </section>
 
   <script type="module" src="/anchor-hook.js?v=20260918-fix1"></script>
-  <script type="module" src="/blackhole.js?v=20260918-score33"></script>
+  <script type="module" src="/blackhole.js?v=20260918-v34"></script>
   <script type="module" src="/wow-layer.js?v=20260918-fix1"></script>
 </body>
 </html>
