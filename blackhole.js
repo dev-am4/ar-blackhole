@@ -478,6 +478,7 @@ function createRelativisticRaymarchedBlackHole() {
         vec3 colAcc = vec3(0.0);
         float transmittance = 1.0;
         bool hitHorizon = false;
+        float minDist = 1e9;
 
         // Dither ray start to eliminate banding and moiré artifacts
         float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
@@ -485,6 +486,7 @@ function createRelativisticRaymarchedBlackHole() {
 
         for (int i = 0; i < 76; i++) {
           float dist = length(r);
+          minDist = min(minDist, dist);
 
           if (dist <= rh) {
             hitHorizon = true;
@@ -565,10 +567,12 @@ function createRelativisticRaymarchedBlackHole() {
             }
           }
 
-          // Thin Photon Sphere Ring (Caustic light looping at r ~ 1.5 rs)
-          if (dist > rh && dist < rh * 1.55) {
-            float rPh = rh * 1.25;
-            float phCaustic = exp(-pow((dist - rPh) / 0.038, 2.0)) * 0.45 * uBrightness;
+          // Thin photon-ring caustic kept OUTSIDE the apparent black-hole shadow.
+          // This prevents the bright caustic from bleeding into the dark center.
+          if (dist > rh * 1.62 && dist < rh * 2.20) {
+            float rPh = rh * 1.82;
+            float ringWidth = 0.030 * max(uMass, 0.55);
+            float phCaustic = exp(-pow((dist - rPh) / ringWidth, 2.0)) * 0.52 * uBrightness;
             vec3 phCol = vec3(1.0, 0.94, 0.85) * phCaustic;
             colAcc += phCol * transmittance;
           }
@@ -576,8 +580,14 @@ function createRelativisticRaymarchedBlackHole() {
           r = nextR;
         }
 
-        if (hitHorizon) {
-          gl_FragColor = vec4(colAcc, 1.0);
+        // Apparent black-hole shadow:
+        // any ray captured by the horizon OR passing inside the capture-shadow
+        // region must remain optically black. Never output accumulated disk light here.
+        float shadowRadius = rh * 1.55;
+        bool insideShadow = hitHorizon || (minDist < shadowRadius);
+
+        if (insideShadow) {
+          gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
         } else {
           vec3 lensedStarfield = getCosmicStarfield(v);
           float edgeDist = length(vLocalPos);
