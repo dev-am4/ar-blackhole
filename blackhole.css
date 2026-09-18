@@ -246,3 +246,117 @@ canvas.gl{display:block}
   .tool-tray{bottom:calc(env(safe-area-inset-bottom) + 78px);gap:6px;padding:8px}
   .tool-tray .action-pill{font-size:10.5px;padding:6px 10px}
 }
+
+
+/* --------------------------------------------------------------------------
+   V2.1 Gravity Lab
+   -------------------------------------------------------------------------- */
+.experiment-panel{
+  position:absolute;
+  z-index:32;
+  left:50%;
+  bottom:calc(env(safe-area-inset-bottom) + 136px);
+  width:min(92vw,700px);
+  padding:14px;
+  border:1px solid rgba(157,190,255,.20);
+  border-radius:24px;
+  background:linear-gradient(145deg,rgba(4,8,20,.94),rgba(12,12,32,.92));
+  backdrop-filter:blur(24px);
+  box-shadow:0 24px 70px rgba(0,0,0,.55);
+  transform:translate(-50%,18px) scale(.97);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .22s ease,transform .22s ease
+}
+.experiment-panel.active{
+  opacity:1;
+  pointer-events:auto;
+  transform:translate(-50%,0) scale(1)
+}
+.experiment-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.experiment-head>div{display:flex;flex-direction:column;gap:3px}
+.experiment-head span{
+  color:var(--cyan);
+  font:700 9px/1 ui-monospace,SFMono-Regular,monospace;
+  letter-spacing:.22em
+}
+.experiment-head strong{font-size:14px;color:#f7f3ec}
+.experiment-intro{margin:9px 0 11px;color:#8f9db8;font-size:10.5px;line-height:1.5}
+.experiment-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.experiment-object{
+  min-width:0;
+  min-height:78px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  padding:9px 5px;
+  border:1px solid rgba(157,190,255,.13);
+  border-radius:15px;
+  background:rgba(255,255,255,.035);
+  color:#eef2fb;
+  cursor:pointer;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease
+}
+.experiment-object:active{transform:scale(.96)}
+.experiment-object:hover,.experiment-object.active{
+  border-color:rgba(141,220,255,.52);
+  background:rgba(141,220,255,.09)
+}
+.experiment-object b{font-size:22px;line-height:1;font-weight:500}
+.experiment-object span{font-size:11px;font-weight:800}
+.experiment-object small{max-width:100%;color:#71809a;font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.experiment-readout{
+  position:relative;
+  margin-top:9px;
+  min-height:66px;
+  padding:10px 12px 10px 78px;
+  border:1px solid rgba(157,190,255,.10);
+  border-radius:14px;
+  background:rgba(0,0,0,.18)
+}
+.experiment-readout>span{
+  position:absolute;left:10px;top:11px;
+  width:56px;padding:4px 5px;
+  border:1px solid rgba(141,220,255,.22);
+  border-radius:7px;
+  color:#9ee4ff;
+  text-align:center;
+  font:700 8px/1 ui-monospace,SFMono-Regular,monospace;
+  letter-spacing:.08em
+}
+.experiment-readout strong{display:block;color:#f5ead9;font-size:11px;line-height:1.35}
+.experiment-readout p{margin-top:3px;color:#8e9db8;font-size:9.5px;line-height:1.45}
+.experiment-readout.event{
+  border-color:rgba(255,139,77,.28);
+  background:rgba(255,111,48,.045)
+}
+.experiment-readout.event>span{border-color:rgba(255,154,92,.36);color:#ffd0a9}
+.experiment-clear{
+  width:100%;
+  margin-top:8px;
+  min-height:32px;
+  border:0;
+  border-radius:10px;
+  background:rgba(255,255,255,.04);
+  color:#7f8ba2;
+  font-size:9.5px;
+  cursor:pointer
+}
+.experiment-clear:hover{background:rgba(255,255,255,.07);color:#cbd4e5}
+
+@media(max-width:560px){
+  .experiment-panel{
+    bottom:calc(env(safe-area-inset-bottom) + 126px);
+    width:min(94vw,520px);
+    padding:11px;
+    border-radius:20px
+  }
+  .experiment-grid{grid-template-columns:repeat(5,minmax(54px,1fr));gap:5px;overflow-x:auto}
+  .experiment-object{min-height:70px;padding:7px 3px}
+  .experiment-object b{font-size:19px}
+  .experiment-object span{font-size:9.5px}
+  .experiment-object small{font-size:7px}
+  .experiment-intro{font-size:9.5px}
+}

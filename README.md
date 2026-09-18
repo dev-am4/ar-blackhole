@@ -130,3 +130,16 @@ HUD จะแสดง mode, placement state, gravity, camera/core position แ�
 - เปิด `?kiosk=1` สำหรับโหมดนิทรรศการ: ซ่อนปุ่มออกและ reset กลับหน้า Attract หลังไม่มี interaction 45 วินาที
 - เครื่องมือขั้นสูงถูกรวมในปุ่ม `สำรวจ` เพื่อลด UI ที่บังหลุมดำ
 - ข้อความ Photon Orbit แยกกรณีหลุมดำไม่หมุนกับหลุมดำหมุนเพื่อไม่ให้ค่า 1.5 Rs ถูกใช้เหมารวมกับ Kerr black hole
+
+
+## V2.1 Gravity Lab
+
+Gravity Lab เพิ่มการทดลองเปรียบเทียบ 5 แบบโดยใช้ geometry ที่สร้างใน Three.js โดยไม่เพิ่ม asset ภายนอก:
+
+- โลก — แสดงแรงไทดัลและการยืดตัวเชิงคุณภาพ
+- ดาวฤกษ์ — แสดง tidal disruption แบบย่อและความสว่างของชั้นเรืองแสง
+- ดาวเทียม — แสดงวงโคจรเสียสมดุล การหมุน และ tidal stress
+- ดาวหาง — แสดงวิถีโค้งพร้อม trail
+- ลำแสง — แสดง light bending พร้อม trail สำหรับอธิบาย gravitational lensing
+
+แบบจำลอง Gravity Lab เป็น visualization เชิงคุณภาพ ไม่ใช่ numerical general-relativity geodesic solver และ UI ระบุข้อจำกัดนี้ไว้ชัดเจน

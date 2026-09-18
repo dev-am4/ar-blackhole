@@ -46,8 +46,47 @@
       <button id="jetToggleBtn" class="action-pill active" title="เปิดหรือปิดลำพลาสมา" style="display:none">⚡ ลำพลาสมา</button>
       <button id="labelToggleBtn" class="action-pill" title="เปิดหรือปิดป้ายกำกับ" style="display:none">⌖ ป้ายกำกับ</button>
       <button id="earthSimBtn" class="action-pill" title="ทดลองแรงไทดัลกับโลก" style="display:none">🌍 ทดลองกับโลก</button>
+      <button id="experimentBtn" class="action-pill" title="Gravity Lab" style="display:none">✦ ทดลองวัตถุ</button>
       <button id="videoBtn" class="action-pill" title="ชมวิดีโออ้างอิง" style="display:none">▶ วิดีโอ</button>
     </div>
+
+    <section id="experimentPanel" class="experiment-panel interactive-ui" aria-label="Gravity Lab" aria-hidden="true">
+      <div class="experiment-head">
+        <div>
+          <span>GRAVITY LAB</span>
+          <strong>ปล่อยวัตถุเข้าสู่สนามแรงโน้มถ่วง</strong>
+        </div>
+        <button id="closeExperimentBtn" class="close-drawer-btn" aria-label="ปิด Gravity Lab">✕</button>
+      </div>
+
+      <p class="experiment-intro">เลือกวัตถุหนึ่งชนิด ระบบจะแสดงพฤติกรรมที่แตกต่างกันเมื่อเข้าใกล้หลุมดำ</p>
+
+      <div class="experiment-grid">
+        <button class="experiment-object" data-object="earth">
+          <b>🌍</b><span>โลก</span><small>แรงไทดัล</small>
+        </button>
+        <button class="experiment-object" data-object="star">
+          <b>★</b><span>ดาวฤกษ์</span><small>ยืดและร้อนขึ้น</small>
+        </button>
+        <button class="experiment-object" data-object="satellite">
+          <b>▣</b><span>ดาวเทียม</span><small>วงโคจรเสียสมดุล</small>
+        </button>
+        <button class="experiment-object" data-object="comet">
+          <b>☄</b><span>ดาวหาง</span><small>เส้นทางโค้ง</small>
+        </button>
+        <button class="experiment-object" data-object="photon">
+          <b>↝</b><span>ลำแสง</span><small>Gravitational lensing</small>
+        </button>
+      </div>
+
+      <div id="experimentReadout" class="experiment-readout">
+        <span id="experimentState">READY</span>
+        <strong id="experimentTitle">เลือกวัตถุเพื่อเริ่มการทดลอง</strong>
+        <p id="experimentText">แบบจำลองนี้ช่วยให้เห็นแนวคิดเชิงคุณภาพ ไม่ได้แทนการคำนวณสัมพัทธภาพทั่วไปแบบเต็มรูปแบบ</p>
+      </div>
+
+      <button id="clearExperimentBtn" class="experiment-clear">ล้างการทดลอง</button>
+    </section>
 
     <!-- Cinematic Camera View Bar -->
     <div id="cinemaBar" class="cinema-bar" style="display:none">

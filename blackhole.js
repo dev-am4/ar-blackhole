@@ -1077,6 +1077,8 @@ function placeBlackHole() {
     if (infoBtn) infoBtn.style.display = 'block';
     const videoBtn = $('#videoBtn');
     if (videoBtn) videoBtn.style.display = 'block';
+    const experimentBtn = $('#experimentBtn');
+    if (experimentBtn) experimentBtn.style.display = 'block';
     const toolsBtn = $('#toolsBtn');
     if (toolsBtn) toolsBtn.hidden = false;
     ensureCinematicLayer();
@@ -1104,11 +1106,15 @@ function placeBlackHole() {
 }
 
 function moveBlackHole() {
+  clearGravityLab();
   moving = true;
   placed = false;
   blackHole.visible = false;
   const earthSimBtn = $('#earthSimBtn');
   if (earthSimBtn) earthSimBtn.style.display = 'none';
+  const experimentPanel = $('#experimentPanel');
+  experimentPanel?.classList.remove('active');
+  experimentPanel?.setAttribute('aria-hidden','true');
   if (hint) {
     hint.style.transition = 'none';
     hint.style.opacity = '1';
@@ -1232,7 +1238,7 @@ function renderCommon(activeCamera, now) {
   animateRealisticBlackHole(now / 1000, activeCamera);
   publishScreenAnchor(blackHole, activeCamera);
   updateARLabels(activeCamera);
-  updateProbes(dt, activeCamera);
+  updateGravityLab(dt, activeCamera);
   updateEarthSim(dt, activeCamera);
   updateHud(activeCamera);
 }
@@ -1723,81 +1729,386 @@ function updateEarthSim(dt) {
 }
 
 // -----------------------------------------------------------------------------
-// Interactive Probes (Spaghettification & Redshift)
+// Gravity Lab · qualitative object experiments
 // -----------------------------------------------------------------------------
-const probes = [];
+const labObjects = [];
+let activeExperimentType = null;
+let lastExperimentPhase = '';
 
-function shootProbe(e) {
-  const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-  const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-  
-  const ndc = new THREE.Vector2(
-    (clientX / window.innerWidth) * 2 - 1,
-    -(clientY / window.innerHeight) * 2 + 1
-  );
+const EXPERIMENTS = {
+  earth: {
+    label: 'โลก',
+    state: 'TIDAL FORCES',
+    intro: 'ความต่างของแรงโน้มถ่วงระหว่างด้านใกล้และด้านไกลจะเพิ่มขึ้นเมื่อเข้าใกล้หลุมดำ',
+    color: 0x4f86ff,
+    speed: 1.85,
+    gravityScale: 1.0,
+    tangent: 0.52
+  },
+  star: {
+    label: 'ดาวฤกษ์',
+    state: 'STELLAR MATTER',
+    intro: 'ดาวฤกษ์ที่เข้าใกล้มากพออาจถูกรบกวนและฉีกด้วยแรงไทดัล โดยพฤติกรรมจริงขึ้นกับมวลและระยะ',
+    color: 0xffd58c,
+    speed: 1.6,
+    gravityScale: 1.05,
+    tangent: 0.7
+  },
+  satellite: {
+    label: 'ดาวเทียม',
+    state: 'ORBIT INSTABILITY',
+    intro: 'เมื่อวงโคจรเปลี่ยนไป ดาวเทียมอาจเร่งความเร็วและเสียเสถียรภาพก่อนเข้าสู่บริเวณแรงไทดัลสูง',
+    color: 0xc8d6ee,
+    speed: 2.0,
+    gravityScale: 1.0,
+    tangent: 0.82
+  },
+  comet: {
+    label: 'ดาวหาง',
+    state: 'CURVED TRAJECTORY',
+    intro: 'วิถีของดาวหางถูกความโน้มถ่วงเบนให้โค้ง และความเร็วจะเพิ่มขึ้นเมื่อเคลื่อนเข้าใกล้',
+    color: 0x9ee8ff,
+    speed: 2.25,
+    gravityScale: 0.92,
+    tangent: 0.95
+  },
+  photon: {
+    label: 'ลำแสง',
+    state: 'LIGHT BENDING',
+    intro: 'แสงเคลื่อนที่ตามเส้นทางในกาล-อวกาศที่โค้ง จึงดูเหมือนวิถีถูกเบนรอบวัตถุมวลมาก',
+    color: 0xffffff,
+    speed: 4.5,
+    gravityScale: 0.34,
+    tangent: 1.08
+  }
+};
 
-  raycaster.setFromCamera(ndc, camera);
-  
-  // Create probe mesh
-  const geometry = new THREE.SphereGeometry(0.02, 16, 16);
-  const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const mesh = new THREE.Mesh(geometry, material);
-  
-  // Start slightly in front of camera
-  mesh.position.copy(camera.position).add(raycaster.ray.direction.clone().multiplyScalar(0.5));
-  scene.add(mesh);
-
-  probes.push({
-    mesh,
-    velocity: raycaster.ray.direction.clone().multiplyScalar(4.0), // Initial speed
-    life: 0
-  });
+function experimentUI(state, title, text, event = false) {
+  const stateEl = $('#experimentState');
+  const titleEl = $('#experimentTitle');
+  const textEl = $('#experimentText');
+  const readout = $('#experimentReadout');
+  if (stateEl) stateEl.textContent = state;
+  if (titleEl) titleEl.textContent = title;
+  if (textEl) textEl.textContent = text;
+  readout?.classList.toggle('event', event);
 }
 
-function updateProbes(dt, activeCamera) {
-  if (!blackHole || !blackHole.visible) return;
-  
-  const corePos = new THREE.Vector3();
-  blackHole.userData.core.getWorldPosition(corePos);
-  
-  const rs = 0.38 * userMass * baseScale; // Schwarzschild radius (approx)
+function disposeObject3D(root) {
+  root?.traverse?.((child) => {
+    child.geometry?.dispose?.();
+    if (Array.isArray(child.material)) child.material.forEach((m) => m?.dispose?.());
+    else child.material?.dispose?.();
+  });
+  root?.parent?.remove(root);
+}
 
-  for (let i = probes.length - 1; i >= 0; i--) {
-    const p = probes[i];
-    p.life += dt;
+function clearGravityLab() {
+  while (labObjects.length) {
+    const item = labObjects.pop();
+    disposeObject3D(item.root);
+    item.trail?.geometry?.dispose?.();
+    item.trail?.material?.dispose?.();
+    item.trail?.parent?.remove(item.trail);
+  }
+  activeExperimentType = null;
+  lastExperimentPhase = '';
+  document.querySelectorAll('.experiment-object').forEach((b) => b.classList.remove('active'));
+  experimentUI(
+    'READY',
+    'เลือกวัตถุเพื่อเริ่มการทดลอง',
+    'แบบจำลองนี้ช่วยให้เห็นแนวคิดเชิงคุณภาพ ไม่ได้แทนการคำนวณสัมพัทธภาพทั่วไปแบบเต็มรูปแบบ'
+  );
+}
 
-    const dirToCore = corePos.clone().sub(p.mesh.position);
-    const dist = dirToCore.length();
-    
-    // Gravity attraction
-    const gravityForce = dirToCore.normalize().multiplyScalar(10.0 * userMass / (dist * dist));
-    p.velocity.add(gravityForce.multiplyScalar(dt));
+function makeEarthLabObject() {
+  const group = new THREE.Group();
+  const globe = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 28, 20),
+    new THREE.MeshStandardMaterial({ color:0x2d6cff, roughness:.72, metalness:.02, emissive:0x061229 })
+  );
+  const land = new THREE.Mesh(
+    new THREE.SphereGeometry(0.122, 20, 14),
+    new THREE.MeshBasicMaterial({ color:0x65b65b, transparent:true, opacity:.28, wireframe:true })
+  );
+  group.add(globe, land);
+  return group;
+}
 
-    // Time Dilation: As it gets closer to rs, it slows down visually
-    const timeDilation = Math.max(0.01, Math.sqrt(Math.max(0.001, 1.0 - (rs / dist))));
-    
-    // Move probe
-    p.mesh.position.add(p.velocity.clone().multiplyScalar(dt * timeDilation));
+function makeStarLabObject() {
+  const group = new THREE.Group();
+  const star = new THREE.Mesh(
+    new THREE.SphereGeometry(0.115, 24, 18),
+    new THREE.MeshBasicMaterial({ color:0xffd48b })
+  );
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.17, 20, 14),
+    new THREE.MeshBasicMaterial({ color:0xffa75d, transparent:true, opacity:.13, blending:THREE.AdditiveBlending, depthWrite:false })
+  );
+  group.add(star, halo);
+  group.userData.glow = halo;
+  return group;
+}
 
-    // Spaghettification (Stretch along velocity vector)
-    const speed = p.velocity.length();
-    if (speed > 0.1) {
-      p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.velocity.clone().normalize());
-      // Stretch more as it gets closer
-      const stretch = 1.0 + (rs / Math.max(dist, rs)) * 15.0;
-      p.mesh.scale.set(1.0 / stretch, stretch, 1.0 / stretch);
+function makeSatelliteLabObject() {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(.13,.09,.09),
+    new THREE.MeshStandardMaterial({ color:0xcbd5e8, metalness:.72, roughness:.28 })
+  );
+  const panelMat = new THREE.MeshBasicMaterial({ color:0x315fa8, side:THREE.DoubleSide });
+  const left = new THREE.Mesh(new THREE.BoxGeometry(.20,.008,.08), panelMat);
+  const right = left.clone();
+  left.position.x = -.17;
+  right.position.x = .17;
+  group.add(body,left,right);
+  return group;
+}
+
+function makeCometLabObject() {
+  const group = new THREE.Group();
+  const nucleus = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(.075,1),
+    new THREE.MeshStandardMaterial({ color:0xb7d6e2, roughness:.9, emissive:0x0a1820 })
+  );
+  const coma = new THREE.Mesh(
+    new THREE.SphereGeometry(.11,16,12),
+    new THREE.MeshBasicMaterial({ color:0x9ee8ff, transparent:true, opacity:.12, blending:THREE.AdditiveBlending, depthWrite:false })
+  );
+  group.add(nucleus,coma);
+  return group;
+}
+
+function makePhotonLabObject() {
+  const group = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(.035,16,12),
+    new THREE.MeshBasicMaterial({ color:0xffffff })
+  );
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(.07,12,8),
+    new THREE.MeshBasicMaterial({ color:0xb9e9ff, transparent:true, opacity:.22, blending:THREE.AdditiveBlending, depthWrite:false })
+  );
+  group.add(core,halo);
+  return group;
+}
+
+function makeLabRoot(type) {
+  if (type === 'earth') return makeEarthLabObject();
+  if (type === 'star') return makeStarLabObject();
+  if (type === 'satellite') return makeSatelliteLabObject();
+  if (type === 'comet') return makeCometLabObject();
+  return makePhotonLabObject();
+}
+
+function makeTrail(color) {
+  const positions = new Float32Array(48 * 3);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  geometry.setDrawRange(0,0);
+  const material = new THREE.LineBasicMaterial({
+    color,
+    transparent:true,
+    opacity:.56,
+    blending:THREE.AdditiveBlending,
+    depthWrite:false
+  });
+  return new THREE.Line(geometry,material);
+}
+
+function launchGravityLab(type) {
+  if (!placed || !blackHole || !camera || !EXPERIMENTS[type]) return;
+  clearGravityLab();
+  activeExperimentType = type;
+
+  const config = EXPERIMENTS[type];
+  const root = makeLabRoot(type);
+  root.scale.setScalar(baseScale);
+
+  const core = new THREE.Vector3();
+  blackHole.userData.core.getWorldPosition(core);
+
+  const camPos = new THREE.Vector3();
+  camera.getWorldPosition(camPos);
+  const toCore = core.clone().sub(camPos).normalize();
+
+  const up = new THREE.Vector3(0,1,0);
+  let tangent = new THREE.Vector3().crossVectors(toCore,up);
+  if (tangent.lengthSq() < .001) tangent = new THREE.Vector3(1,0,0);
+  tangent.normalize();
+
+  const startDistance = mode === 'simulator' ? 2.9 : 1.05;
+  root.position.copy(camPos).add(toCore.clone().multiplyScalar(startDistance));
+  root.position.add(tangent.clone().multiplyScalar(.18 * baseScale));
+
+  const velocity = toCore.clone().multiplyScalar(config.speed);
+  velocity.add(tangent.multiplyScalar(config.tangent));
+
+  scene.add(root);
+
+  const trail = (type === 'comet' || type === 'photon') ? makeTrail(config.color) : null;
+  if (trail) scene.add(trail);
+
+  labObjects.push({
+    type,
+    config,
+    root,
+    velocity,
+    life:0,
+    trail,
+    trailPoints:[],
+    baseSize:baseScale
+  });
+
+  document.querySelectorAll('.experiment-object').forEach((b) => {
+    b.classList.toggle('active', b.dataset.object === type);
+  });
+
+  experimentUI(config.state, config.label + ' กำลังเข้าสู่สนามแรงโน้มถ่วง', config.intro);
+  navigator.vibrate?.(18);
+  resetKioskIdle();
+}
+
+function updateLabTrail(item) {
+  if (!item.trail) return;
+  item.trailPoints.unshift(item.root.position.clone());
+  if (item.trailPoints.length > 48) item.trailPoints.pop();
+
+  const attr = item.trail.geometry.getAttribute('position');
+  for (let i=0;i<item.trailPoints.length;i++) {
+    const p = item.trailPoints[i];
+    attr.setXYZ(i,p.x,p.y,p.z);
+  }
+  attr.needsUpdate = true;
+  item.trail.geometry.setDrawRange(0,item.trailPoints.length);
+}
+
+function updateExperimentNarrative(item, dist, rs) {
+  if (item !== labObjects[0]) return;
+  const ratio = dist / Math.max(rs,.001);
+  let phase = 'far';
+  let state = item.config.state;
+  let title = item.config.label + ' กำลังเคลื่อนเข้าใกล้';
+  let text = item.config.intro;
+  let event = false;
+
+  if (ratio < 3.0) {
+    phase = 'gravity';
+    title = 'วิถีเริ่มเปลี่ยนอย่างชัดเจน';
+    text = item.type === 'photon'
+      ? 'เส้นทางของแสงกำลังโค้งตามเรขาคณิตของกาล-อวกาศรอบหลุมดำ'
+      : 'ความเร็วและทิศทางกำลังเปลี่ยนจากสนามแรงโน้มถ่วงที่รุนแรงขึ้น';
+  }
+  if (ratio < 1.65) {
+    phase = 'tidal';
+    event = true;
+    if (item.type === 'earth' || item.type === 'star' || item.type === 'satellite') {
+      state = 'TIDAL STRESS';
+      title = 'แรงไทดัลเพิ่มขึ้นอย่างรวดเร็ว';
+      text = 'ด้านที่อยู่ใกล้หลุมดำถูกดึงแรงกว่าด้านไกล วัตถุจึงถูกยืดตามแนวเข้าสู่หลุมดำ';
+    } else if (item.type === 'comet') {
+      state = 'STRONG DEFLECTION';
+      title = 'วิถีดาวหางโค้งมากขึ้น';
+      text = 'แบบจำลองแสดงการเร่งและการเบนของวิถีเมื่อผ่านบริเวณสนามแรงโน้มถ่วงสูง';
+    } else {
+      state = 'GRAVITATIONAL LENSING';
+      title = 'แสงถูกเบนอย่างรุนแรง';
+      text = 'ใกล้หลุมดำ วิถีแสงอาจโค้งมากจนสร้างภาพซ้ำ วงแหวน หรือโครงสร้างเลนส์ความโน้มถ่วงแก่ผู้สังเกต';
+    }
+  }
+  if (ratio <= 1.03) {
+    phase = 'horizon';
+    state = 'EVENT HORIZON';
+    title = 'ถึงขอบฟ้าเหตุการณ์';
+    text = item.type === 'photon'
+      ? 'เมื่อวิถีแสงผ่านขอบฟ้าเหตุการณ์แล้ว แสงนั้นไม่สามารถกลับออกมาถึงผู้สังเกตภายนอกได้'
+      : 'เมื่อวัตถุผ่านขอบฟ้าเหตุการณ์แล้ว ไม่มีสัญญาณจากวัตถุนั้นสามารถกลับออกมาถึงผู้สังเกตภายนอกได้';
+    event = true;
+  }
+
+  if (phase !== lastExperimentPhase) {
+    lastExperimentPhase = phase;
+    experimentUI(state,title,text,event);
+  }
+}
+
+function updateGravityLab(dt, activeCamera) {
+  if (!blackHole || !blackHole.visible || !labObjects.length) return;
+
+  const core = new THREE.Vector3();
+  blackHole.userData.core.getWorldPosition(core);
+  const rs = .38 * userMass * baseScale;
+
+  for (let i=labObjects.length-1;i>=0;i--) {
+    const item = labObjects[i];
+    item.life += dt;
+
+    const delta = core.clone().sub(item.root.position);
+    const dist = Math.max(.04,delta.length());
+    const dir = delta.normalize();
+    const softDist = Math.max(dist,.22 * baseScale);
+
+    // This is a qualitative exhibit integrator, not a full GR geodesic solver.
+    const acceleration = (2.25 * userMass * item.config.gravityScale) / (softDist * softDist);
+    item.velocity.add(dir.multiplyScalar(acceleration * dt));
+
+    const step = item.velocity.clone().multiplyScalar(dt);
+    item.root.position.add(step);
+    updateLabTrail(item);
+    updateExperimentNarrative(item,dist,rs);
+
+    const ratio = dist / Math.max(rs,.001);
+    const stretch = THREE.MathUtils.clamp(1 + Math.max(0,1.9-ratio) * 2.8,1,7);
+
+    if (item.type === 'earth') {
+      item.root.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), item.velocity.clone().normalize());
+      item.root.scale.set(item.baseSize / Math.sqrt(stretch), item.baseSize * stretch, item.baseSize / Math.sqrt(stretch));
+    } else if (item.type === 'star') {
+      item.root.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), item.velocity.clone().normalize());
+      item.root.scale.set(item.baseSize / Math.sqrt(stretch), item.baseSize * stretch, item.baseSize / Math.sqrt(stretch));
+      if (item.root.userData.glow) {
+        item.root.userData.glow.material.opacity = THREE.MathUtils.clamp(.12 + (2-ratio)*.12,.1,.46);
+      }
+    } else if (item.type === 'satellite') {
+      item.root.rotation.x += dt * (2 + Math.max(0,2.5-ratio) * 5);
+      item.root.rotation.z += dt * 1.7;
+      item.root.scale.set(item.baseSize, item.baseSize * Math.min(stretch,3.2), item.baseSize);
+    } else if (item.type === 'comet') {
+      item.root.rotation.y += dt * 3.2;
+      item.root.scale.setScalar(item.baseSize * (1 + Math.max(0,2-ratio)*.08));
+    } else if (item.type === 'photon') {
+      item.root.scale.setScalar(item.baseSize * (.86 + Math.sin(item.life*20)*.08));
     }
 
-    // Gravitational Redshift (White -> Yellow -> Red -> Dark Red)
-    const redshiftFactor = Math.max(0, 1.0 - (rs / dist));
-    p.mesh.material.color.setHSL(0.0, 1.0, redshiftFactor * 0.5 + 0.1);
+    // Qualitative gravitational redshift visualization for matter near the horizon.
+    if (ratio < 1.55 && item.type !== 'photon') {
+      item.root.traverse((child) => {
+        if (child.material?.color) {
+          const fade = THREE.MathUtils.clamp((1.55-ratio)/.55,0,.82);
+          child.material.color.lerp(new THREE.Color(0x8f1f16), fade * dt * 2.5);
+        }
+      });
+    }
 
-    // Remove if it crosses event horizon or lives too long
-    if (dist < rs * 1.05 || p.life > 10) {
-      scene.remove(p.mesh);
-      p.mesh.geometry.dispose();
-      p.mesh.material.dispose();
-      probes.splice(i, 1);
+    if (dist < rs * .96 || item.life > (item.type === 'photon' ? 8 : 13)) {
+      disposeObject3D(item.root);
+      if (item.trail) {
+        item.trail.geometry.dispose();
+        item.trail.material.dispose();
+        item.trail.parent?.remove(item.trail);
+      }
+      labObjects.splice(i,1);
+      if (!labObjects.length) {
+        setTimeout(() => {
+          if (!labObjects.length && activeExperimentType) {
+            experimentUI(
+              'CYCLE COMPLETE',
+              'การทดลองจบแล้ว',
+              'เลือกวัตถุชนิดเดิมเพื่อดูซ้ำ หรือเปลี่ยนวัตถุเพื่อเปรียบเทียบพฤติกรรม'
+            );
+          }
+        },500);
+      }
     }
   }
 }
@@ -1952,6 +2263,37 @@ function setupInteractiveUI() {
     earthSimBtn.addEventListener('click', startEarthSimulation);
   }
 
+  // Gravity Lab
+  const experimentBtn = $('#experimentBtn');
+  const experimentPanel = $('#experimentPanel');
+  const closeExperimentBtn = $('#closeExperimentBtn');
+  const clearExperimentBtn = $('#clearExperimentBtn');
+
+  if (experimentBtn && experimentPanel) {
+    experimentBtn.addEventListener('click', () => {
+      const open = !experimentPanel.classList.contains('active');
+      experimentPanel.classList.toggle('active',open);
+      experimentPanel.setAttribute('aria-hidden',open ? 'false' : 'true');
+      experimentBtn.classList.toggle('active',open);
+      $('#physicsPanel')?.classList.remove('active');
+      $('#infoDrawer')?.classList.remove('active');
+      $('#videoModal')?.classList.remove('active');
+      resetKioskIdle();
+    });
+  }
+
+  closeExperimentBtn?.addEventListener('click', () => {
+    experimentPanel?.classList.remove('active');
+    experimentPanel?.setAttribute('aria-hidden','true');
+    experimentBtn?.classList.remove('active');
+  });
+
+  clearExperimentBtn?.addEventListener('click', clearGravityLab);
+
+  document.querySelectorAll('.experiment-object').forEach((button) => {
+    button.addEventListener('click', () => launchGravityLab(button.dataset.object));
+  });
+
   // Snapshot + native share functionality
   const snapshotBtn = $('#snapshotBtn');
   const flashOverlay = $('#flashOverlay');
@@ -2036,13 +2378,6 @@ function setupInteractiveUI() {
     });
   }
 
-  // Shoot probes on tap (AR modes only, so dragging in simulator doesn't spawn probes)
-  window.addEventListener('pointerdown', (e) => {
-    if ((mode !== 'xr' && mode !== 'fallback') || !placed) return;
-    if (e.target.closest('button, .physics-panel, .info-drawer, .ar-label, .topbar')) return;
-    shootProbe(e);
-  });
-
   // Spatial Labels Toggle
   const labelToggleBtn = $('#labelToggleBtn');
   if (labelToggleBtn) {
@@ -2107,6 +2442,8 @@ function setupInteractiveUI() {
       physicsPanel.classList.toggle('active');
       if (infoDrawer) infoDrawer.classList.remove('active');
       if (videoModal) videoModal.classList.remove('active');
+      $('#experimentPanel')?.classList.remove('active');
+      $('#experimentBtn')?.classList.remove('active');
     });
   }
 
@@ -2115,6 +2452,8 @@ function setupInteractiveUI() {
       infoDrawer.classList.toggle('active');
       if (physicsPanel) physicsPanel.classList.remove('active');
       if (videoModal) videoModal.classList.remove('active');
+      $('#experimentPanel')?.classList.remove('active');
+      $('#experimentBtn')?.classList.remove('active');
     });
   }
 
@@ -2129,6 +2468,8 @@ function setupInteractiveUI() {
     videoModal.classList.add('active');
     if (physicsPanel) physicsPanel.classList.remove('active');
     if (infoDrawer) infoDrawer.classList.remove('active');
+    $('#experimentPanel')?.classList.remove('active');
+    $('#experimentBtn')?.classList.remove('active');
     if (youtubeIframe && !youtubeIframe.src) {
       youtubeIframe.src = `https://www.youtube.com/embed/${NASA_VIDEO_ID}?autoplay=1&rel=0`;
     }
@@ -2221,6 +2562,7 @@ window.addEventListener('touchmove', (e) => {
 window.addEventListener('touchend', () => { pinchStart = 0; }, { passive: true });
 
 window.addEventListener('beforeunload', () => {
+  clearGravityLab();
   stream?.getTracks().forEach((t) => t.stop());
   if (audio?.ctx && audio.ctx.state !== 'closed') audio.ctx.close().catch(() => {});
 });
