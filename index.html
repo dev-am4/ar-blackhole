@@ -26,8 +26,8 @@
         <button id="startBtn" class="mode-card mode-card-camera">
           <span class="mode-icon">◉</span>
           <span class="mode-copy">
-            <strong>AR กล้องจริง</strong>
-            <small>ใช้สถานที่จริงจากกล้องหลัง แล้ววางหลุมดำลงในภาพตรงหน้า</small>
+            <strong>AR · วางหลุมดำตรงหน้า</strong>
+            <small>เปิดกล้องหลัง วางหลุมดำ และดูการก่อตัวของหลุมดำมวลดาวฤกษ์แบบสั้น ๆ</small>
           </span>
           <i>เปิดกล้อง</i>
         </button>
@@ -35,14 +35,14 @@
         <button id="simIntroBtn" class="mode-card mode-card-simulator">
           <span class="mode-icon">✦</span>
           <span class="mode-copy">
-            <strong>แบบจำลอง 3D</strong>
-            <small>สำรวจในฉากอวกาศ หมุน ซูม และทดลองฟิสิกส์ได้เต็มรูปแบบ</small>
+            <strong>BLACK HOLE LAB</strong>
+            <small>ปล่อยโลก ดาวฤกษ์ ดาวเทียม ดาวหาง หรือลำแสง เพื่อเรียนรู้สิ่งที่เกิดขึ้นแต่ละช่วง</small>
           </span>
           <i>เข้าแบบจำลอง</i>
         </button>
       </div>
 
-      <p class="mode-note">AR กล้องจริงต้องอนุญาตสิทธิ์ใช้งานกล้องหลัง</p>
+      <p class="mode-note">AR ใช้กล้องหลังจริง · LAB ไม่ใช้กล้อง</p>
     </div>
     <div class="intro-orbit" aria-hidden="true"></div>
   </main>
@@ -57,6 +57,15 @@
         <button id="exitBtn" class="exit">ออก</button>
       </div>
     </div>
+
+    <div id="experienceBadge" class="experience-badge" aria-live="polite">AR VIEW</div>
+
+    <section id="arStory" class="ar-story" aria-live="polite" aria-hidden="true">
+      <span id="arStoryStep">01 · STELLAR COLLAPSE</span>
+      <strong id="arStoryTitle">ดาวฤกษ์มวลมากยุบตัว</strong>
+      <p id="arStoryText">ตัวอย่างหนึ่งของการกำเนิดหลุมดำมวลดาวฤกษ์</p>
+      <div class="story-progress"><i id="arStoryProgress"></i></div>
+    </section>
 
     <div id="toolTray" class="tool-tray interactive-ui" aria-label="เครื่องมือสำรวจหลุมดำ">
       <button id="physicsBtn" class="action-pill" title="ปรับแบบจำลอง" style="display:none">⚙️ ฟิสิกส์</button>
@@ -122,13 +131,13 @@
     <section id="experimentPanel" class="experiment-panel interactive-ui" aria-label="Gravity Lab" aria-hidden="true">
       <div class="experiment-head">
         <div>
-          <span>GRAVITY LAB</span>
+          <span>BLACK HOLE LAB</span>
           <strong>ปล่อยวัตถุเข้าสู่สนามแรงโน้มถ่วง</strong>
         </div>
         <button id="closeExperimentBtn" class="close-drawer-btn" aria-label="ปิด Gravity Lab">✕</button>
       </div>
 
-      <p class="experiment-intro">เลือกวัตถุหนึ่งชนิด ระบบจะแสดงพฤติกรรมที่แตกต่างกันเมื่อเข้าใกล้หลุมดำ</p>
+      <p class="experiment-intro">เลือกหนึ่งวัตถุ แล้วสังเกตสิ่งที่เกิดขึ้นตั้งแต่ระยะไกลจนถึงขอบฟ้าเหตุการณ์</p>
 
       <div class="experiment-grid">
         <button class="experiment-object" data-object="earth">
