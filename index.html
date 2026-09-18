@@ -20,9 +20,29 @@
       <div class="intro-kicker">EXTREME GRAVITY EXPERIENCE</div>
       <h1 class="title-minimal">BLACK HOLE</h1>
       <p class="intro-line">เข้าใกล้บริเวณที่แรงโน้มถ่วงรุนแรงจนแม้แต่แสงก็ไม่สามารถกลับออกมาได้</p>
-      <div class="intro-status"><i></i><span id="modeHint">ระบบจะเลือก AR หรือ 3D ให้เหมาะกับอุปกรณ์ของคุณ</span></div>
-      <button id="startBtn" class="btn-ar">เริ่มสำรวจ</button>
-      <button id="simIntroBtn" class="mode-link">ใช้โหมดจำลอง 3D</button>
+      <div class="intro-status"><i></i><span id="modeHint">เลือกวิธีสำรวจหลุมดำ</span></div>
+
+      <div class="mode-choice-grid" aria-label="เลือกโหมดการใช้งาน">
+        <button id="startBtn" class="mode-card mode-card-camera">
+          <span class="mode-icon">◉</span>
+          <span class="mode-copy">
+            <strong>AR กล้องจริง</strong>
+            <small>ใช้สถานที่จริงจากกล้องหลัง แล้ววางหลุมดำลงในภาพตรงหน้า</small>
+          </span>
+          <i>เปิดกล้อง</i>
+        </button>
+
+        <button id="simIntroBtn" class="mode-card mode-card-simulator">
+          <span class="mode-icon">✦</span>
+          <span class="mode-copy">
+            <strong>แบบจำลอง 3D</strong>
+            <small>สำรวจในฉากอวกาศ หมุน ซูม และทดลองฟิสิกส์ได้เต็มรูปแบบ</small>
+          </span>
+          <i>เข้าแบบจำลอง</i>
+        </button>
+      </div>
+
+      <p class="mode-note">AR กล้องจริงต้องอนุญาตสิทธิ์ใช้งานกล้องหลัง</p>
     </div>
     <div class="intro-orbit" aria-hidden="true"></div>
   </main>
