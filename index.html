@@ -18,21 +18,26 @@
     <div class="intro-shell">
       <div class="venue">ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์</div>
       <div class="brand">ZONE 5 · SPACE MISSION INTERACTIVE</div>
-      <div class="supplement-badge">STATION 5 · AR BLACK HOLE</div>
+      <div class="supplement-badge">STATION 5 · ASTROPHYSICAL BLACK HOLE AR</div>
 
-      <div class="preview" aria-hidden="true"><span class="lens-ring"></span></div>
-
-      <h1>หลุมดำ<span>Black Hole AR</span></h1>
-      <p class="lede">วางหลุมดำในพื้นที่จริง แล้วเข้าใกล้เพื่อสำรวจแรงโน้มถ่วงสุดขั้วและขอบฟ้าเหตุการณ์</p>
-
-      <div class="steps" aria-label="วิธีเล่น">
-        <div class="step"><b>01</b>เปิดกล้อง</div>
-        <div class="step"><b>02</b>วางหลุมดำ</div>
-        <div class="step"><b>03</b>เข้าใกล้และสำรวจ</div>
+      <div class="preview" aria-hidden="true">
+        <span class="lens-ring"></span>
       </div>
 
-      <button id="startBtn">เริ่ม AR</button>
-      <p class="compat">ใช้มือถือหรือแท็บเล็ต · ไม่ต้องติดตั้งแอป</p>
+      <h1>หลุมดำเสมือนจริง<span>Astrophysical Black Hole 3D/AR</span></h1>
+      <p class="lede">แบบจำลองตามหลักฟิสิกส์ดาราศาสตร์: สัมผัสขอบฟ้าเหตุการณ์ (Event Horizon), วงแหวนโฟตอน, จานสะสมมวลหมุนสัมพัทธ์ (Doppler Beaming) และการบิดเบี้ยวของแสงจากเลนส์ความโน้มถ่วง (Gravitational Lensing)</p>
+
+      <div class="steps" aria-label="วิธีเล่น">
+        <div class="step"><b>01</b>วางตำแหน่ง</div>
+        <div class="step"><b>02</b>หมุนสำรวจ 360°</div>
+        <div class="step"><b>03</b>เข้าใกล้รับแรงดึงดูด</div>
+      </div>
+
+      <div class="intro-actions">
+        <button id="startBtn" class="primary-launch-btn">เปิดกล้อง AR สำรวจในพื้นที่จริง</button>
+        <button id="simIntroBtn" class="secondary-sim-btn">เข้าสู่ห้องจำลองอวกาศ 3D (3D Simulator)</button>
+      </div>
+      <p class="compat">รองรับทั้งมือถือ แท็บเล็ต และคอมพิวเตอร์ · จำลองฟิสิกส์ดาราศาสตร์สัมพัทธภาพทั่วไป</p>
     </div>
   </main>
 
@@ -40,15 +45,76 @@
     <div class="topbar">
       <span id="statusDot" class="status-dot"></span>
       <span id="statusText" class="status-text">กำลังเตรียม</span>
-      <span class="zone-mark">ZONE 5 · STATION 5</span>
-      <button id="exitBtn" class="exit">ออก</button>
+      <div class="topbar-actions">
+        <button id="physicsBtn" class="action-pill" title="ปรับแต่งฟิสิกส์">⚙️ ฟิสิกส์</button>
+        <button id="infoBtn" class="action-pill" title="องค์ประกอบทางวิทยาศาสตร์">🌌 ความรู้หลุมดำ</button>
+        <button id="exitBtn" class="exit">ออก</button>
+      </div>
     </div>
 
     <div class="gravity-card">
-      <div class="gravity-head"><span>BLACK HOLE · GRAVITY FIELD</span><strong id="meterValue">0%</strong></div>
+      <div class="gravity-head">
+        <span>BLACK HOLE · GRAVITATIONAL FIELD</span>
+        <strong id="meterValue">0%</strong>
+      </div>
       <div class="meter"><i id="meterFill"></i></div>
       <p class="gravity-fact">เข้าใกล้เพื่อเพิ่มแรงโน้มถ่วง</p>
     </div>
+
+    <!-- Physics Adjustment Panel -->
+    <div id="physicsPanel" class="physics-panel interactive-ui" aria-label="แผงปรับแต่งฟิสิกส์หลุมดำ">
+      <div class="panel-header">
+        <strong>การปรับแต่งฟิสิกส์ (Astro Controls)</strong>
+      </div>
+      <div class="panel-body">
+        <label class="control-row">
+          <span>มวลหลุมดำ (Mass Scale):</span>
+          <input type="range" id="massSlider" min="0.5" max="2.0" step="0.05" value="1.0">
+        </label>
+        <label class="control-row">
+          <span>ความเร็วการหมุน (Spin $a/M$):</span>
+          <input type="range" id="spinSlider" min="0.2" max="0.99" step="0.01" value="0.85">
+        </label>
+        <label class="control-row">
+          <span>ความสว่างจานสะสมมวล (Luminosity):</span>
+          <input type="range" id="brightnessSlider" min="0.4" max="2.0" step="0.1" value="1.0">
+        </label>
+        <label class="control-row-toggle">
+          <span>เลนส์บิดเบือนกาล-อวกาศ (Spacetime Lensing):</span>
+          <input type="checkbox" id="lensingToggle" checked>
+        </label>
+      </div>
+    </div>
+
+    <!-- Educational Scientific Anatomy Drawer -->
+    <aside id="infoDrawer" class="info-drawer interactive-ui" aria-label="ความรู้ทางฟิสิกส์ดาราศาสตร์">
+      <div class="drawer-header">
+        <h3>โครงสร้างฟิสิกส์ของหลุมดำ</h3>
+        <button id="closeInfoBtn" class="close-drawer-btn" aria-label="ปิด">✕</button>
+      </div>
+      <div class="drawer-content">
+        <article class="info-item">
+          <h4>1. ขอบฟ้าเหตุการณ์ (Event Horizon & Shadow)</h4>
+          <p>รัศมีชวาร์ซชิลด์ ($R_s$) บริเวณที่แรงโน้มถ่วงสูงมากจนความเร็วหลุดพ้นเท่ากับความเร็วแสง ไม่มีสสารหรือรังสีใดสามารถหลุดรอดออกมาได้ กลายเป็นเงาดำมืดสนิทที่ใจกลาง</p>
+        </article>
+        <article class="info-item">
+          <h4>2. วงแหวนโฟตอน (Photon Sphere)</h4>
+          <p>อยู่ที่ระยะ $1.5 R_s$ เป็นวงโคจรไม่เสถียรที่อนุภาคแสง (โฟตอน) เดินทางเป็นวงกลมรอบหลุมดำ ก่อให้เกิดวงแหวนแสงที่มีความเข้มข้นสูงสุด</p>
+        </article>
+        <article class="info-item">
+          <h4>3. จานสะสมมวล (Accretion Disk)</h4>
+          <p>กลุ่มก๊าซและพลาสมาที่ถูกแรงโน้มถ่วงดึงดูดเข้ามาและหมุนวนด้วยความเร็วเคปเลอร์แรงสูง เกิดแรงเสียดทานจนร้อนจัดนับแสนถึงล้านเคลวิน และเปล่งรังสีความร้อนเจิดจ้า</p>
+        </article>
+        <article class="info-item">
+          <h4>4. การพุ่งลำแสงดอปเปลอร์ (Relativistic Doppler Beaming)</h4>
+          <p>ตามทฤษฎีสัมพัทธภาพพิเศษ ด้านของจานสะสมมวลที่หมุนพุ่งเข้าหาผู้สังเกตจะมีความสว่างเข้มข้นกว่าปกติและเลื่อนความถี่ไปทางสีฟ้า (Blueshift) ส่วนด้านที่หมุนถอยห่างจะมืดลงและเลื่อนไปทางสีแดง (Redshift)</p>
+        </article>
+        <article class="info-item">
+          <h4>5. เลนส์ความโน้มถ่วง (Gravitational Lensing)</h4>
+          <p>มวลมหาศาลทำให้กาล-อวกาศโค้งงอ แสงจากด้านหลังของจานสะสมมวลจึงถูกหักเหอ้อมขึ้นมาด้านบนและด้านล่างของขอบฟ้าเหตุการณ์ ปรากฏเป็นภาพวงโค้งประกบอันเป็นเอกลักษณ์ (คล้ายหลุมดำ Gargantua ใน Interstellar)</p>
+        </article>
+      </div>
+    </aside>
 
     <div id="hint" class="hint">กำลังเปิดกล้อง…</div>
     <div class="dock">
