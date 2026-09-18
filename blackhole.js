@@ -1873,7 +1873,6 @@ function startSimulatorMode() {
 
   if (visitorExperience === 'lab') {
     placeBlackHole();
-    showLabExperience();
   }
 }
 
