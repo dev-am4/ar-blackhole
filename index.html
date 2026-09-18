@@ -7,7 +7,7 @@
   <meta name="description" content="Black Hole AR สื่อเสริมการเรียนรู้ Zone 2 · Big Bang Dome ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์">
   <title>Black Hole Experience · Zone 2 Big Bang Dome · นครสวรรค์</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="/blackhole.css?v=20260918-lab31">
+  <link rel="stylesheet" href="/blackhole.css?v=20260918-lab32">
   <link rel="stylesheet" href="/wow.css?v=20260918-fix1">
 </head>
 <body>
@@ -149,10 +149,13 @@
           <span>BLACK HOLE LAB</span>
           <strong>ปล่อยวัตถุเข้าสู่สนามแรงโน้มถ่วง</strong>
         </div>
-        <button id="closeExperimentBtn" class="close-drawer-btn" aria-label="ปิด Gravity Lab">✕</button>
+        <div class="experiment-head-actions">
+          <button id="resetLabViewBtn" class="lab-view-reset" type="button" title="กลับมุมเริ่มต้น">↺ มุมเริ่มต้น</button>
+          <button id="closeExperimentBtn" class="close-drawer-btn" aria-label="ปิด Gravity Lab">✕</button>
+        </div>
       </div>
 
-      <p class="experiment-intro">เลือกหนึ่งวัตถุ แล้วสังเกตสิ่งที่เกิดขึ้นตั้งแต่ระยะไกลจนถึงขอบฟ้าเหตุการณ์</p>
+      <p class="experiment-intro">เลือกหนึ่งวัตถุ แล้วสังเกตทั้ง 4 ช่วง · ลากฉากเพื่อหมุน · หนีบสองนิ้วหรือสกรอลล์เพื่อซูม</p>
 
       <div class="experiment-grid">
         <button class="experiment-object" data-object="earth">
@@ -305,7 +308,7 @@
   </section>
 
   <script type="module" src="/anchor-hook.js?v=20260918-fix1"></script>
-  <script type="module" src="/blackhole.js?v=20260918-lab31"></script>
+  <script type="module" src="/blackhole.js?v=20260918-lab32"></script>
   <script type="module" src="/wow-layer.js?v=20260918-fix1"></script>
 </body>
 </html>
