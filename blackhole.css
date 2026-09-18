@@ -810,3 +810,244 @@ html[data-device="mobile"] .action-pill{
   .mode-card>i{font-size:7.5px}
   .mode-note{font-size:8.5px;margin-top:10px}
 }
+
+
+/* ==========================================================================
+   V3 · TWO EXPERIENCES ONLY
+   Public visitor flow:
+   1) AR VIEW       — place + short cinematic story
+   2) BLACK HOLE LAB — release objects + learn by stage
+   ========================================================================== */
+
+/* Retire legacy visitor surfaces without deleting the underlying engine. */
+html:not([data-debug="1"]) #toolTray,
+html:not([data-debug="1"]) #missionPanel,
+html:not([data-debug="1"]) #missionHud,
+html:not([data-debug="1"]) #missionResult,
+html:not([data-debug="1"]) #physicsPanel,
+html:not([data-debug="1"]) #infoDrawer,
+html:not([data-debug="1"]) #cinemaBar,
+html:not([data-debug="1"]) #videoModal,
+html:not([data-debug="1"]) #earthTimeline,
+html:not([data-debug="1"]) #arLabels,
+html:not([data-debug="1"]) #pulseBtn,
+html:not([data-debug="1"]) #toolsBtn{
+  display:none!important;
+}
+
+/* Intro now behaves like a two-door exhibit entrance. */
+#intro .intro-shell{width:min(760px,100%)}
+#intro .title-minimal{margin-bottom:12px}
+#intro .intro-line{margin-bottom:12px}
+#intro .intro-status{margin-bottom:18px}
+
+/* Small mode badge in both experiences. */
+.experience-badge{
+  position:absolute;
+  z-index:18;
+  left:12px;
+  top:calc(env(safe-area-inset-top) + 60px);
+  padding:6px 9px;
+  border:1px solid rgba(157,190,255,.14);
+  border-radius:999px;
+  background:rgba(3,7,18,.72);
+  color:#7f8da6;
+  font:700 8px/1 ui-monospace,SFMono-Regular,monospace;
+  letter-spacing:.15em;
+  pointer-events:none;
+}
+
+/* AR story card: only a few words, never covers the black-hole center. */
+.ar-story{
+  position:absolute;
+  z-index:27;
+  left:50%;
+  bottom:calc(env(safe-area-inset-bottom) + 84px);
+  width:min(88vw,420px);
+  padding:13px 14px 12px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:18px;
+  background:linear-gradient(145deg,rgba(2,5,12,.88),rgba(9,9,22,.83));
+  box-shadow:0 18px 44px rgba(0,0,0,.38);
+  transform:translate(-50%,12px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .3s ease,transform .3s ease;
+}
+.ar-story.active{
+  opacity:1;
+  transform:translate(-50%,0);
+}
+.ar-story>span{
+  color:#8ddcff;
+  font:700 8px/1 ui-monospace,SFMono-Regular,monospace;
+  letter-spacing:.17em;
+}
+.ar-story>strong{
+  display:block;
+  margin-top:5px;
+  color:#fff7ea;
+  font-size:15px;
+  line-height:1.25;
+}
+.ar-story>p{
+  margin-top:4px;
+  color:#9ca9c0;
+  font-size:10px;
+  line-height:1.5;
+}
+.story-progress{
+  height:2px;
+  margin-top:9px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+}
+.story-progress i{
+  display:block;
+  width:100%;
+  height:100%;
+  transform:scaleX(0);
+  transform-origin:left center;
+  background:linear-gradient(90deg,#8ddcff,#ffd28f);
+}
+
+/* AR is intentionally nearly UI-free. */
+html[data-experience="ar"] #experimentPanel{display:none!important}
+html[data-experience="ar"] .dock{
+  background:linear-gradient(to top,rgba(0,1,6,.72),transparent);
+}
+html[data-experience="ar"] #placeBtn{
+  max-width:360px;
+  margin-inline:auto;
+}
+html[data-experience="ar"] #moveBtn{
+  flex:0 1 180px;
+}
+html[data-experience="ar"] #snapshotBtn{
+  display:none;
+}
+
+/* LAB: the experiment panel is the interface. */
+html[data-experience="lab"] #feed{display:none!important}
+html[data-experience="lab"] .dock{display:none!important}
+html[data-experience="lab"] .hint{
+  bottom:auto;
+  top:calc(env(safe-area-inset-top) + 82px);
+  border:0;
+  background:rgba(2,5,12,.58);
+  color:#8592aa;
+  box-shadow:none;
+}
+html[data-experience="lab"] #experimentPanel{
+  display:block!important;
+  top:auto;
+  left:50%;
+  right:auto;
+  bottom:calc(env(safe-area-inset-bottom) + 12px);
+  width:min(94vw,720px);
+  max-height:min(43dvh,390px);
+  overflow:auto;
+  opacity:1!important;
+  pointer-events:auto!important;
+  transform:translateX(-50%)!important;
+  padding:12px;
+  border-radius:20px;
+  background:linear-gradient(145deg,rgba(3,7,18,.94),rgba(10,10,28,.94));
+}
+html[data-experience="lab"] #experimentPanel .close-drawer-btn{
+  display:none;
+}
+html[data-experience="lab"] .experiment-intro{
+  margin-bottom:9px;
+}
+html[data-experience="lab"] .experiment-clear{
+  min-height:36px;
+}
+html[data-experience="lab"] .experiment-readout{
+  min-height:72px;
+}
+
+/* Keep the black hole clearly visible above the lab sheet. */
+html[data-experience="lab"] .topbar{
+  background:linear-gradient(to bottom,rgba(1,3,10,.72),transparent);
+}
+html[data-experience="lab"] #snapshotBtn{display:none!important}
+
+/* Exit/back is the only persistent navigation. */
+.topbar-actions{margin-left:auto}
+#exitBtn{min-width:60px}
+
+/* Mobile: use the lower third only; the black-hole center remains unobstructed. */
+@media(max-width:700px){
+  #intro{padding:14px}
+  #intro .intro-shell{padding:8px 0}
+  #intro .badge-minimal{margin-bottom:14px}
+  #intro .intro-kicker{margin-bottom:8px}
+  #intro .title-minimal{
+    font-size:clamp(48px,15vw,76px);
+    margin-bottom:10px;
+  }
+  #intro .intro-line{
+    max-width:340px;
+    font-size:12px;
+    line-height:1.6;
+    margin-bottom:8px;
+  }
+  #intro .intro-status{margin-bottom:12px}
+
+  .mode-choice-grid{gap:8px}
+  .mode-card{
+    min-height:94px;
+    padding:11px 12px;
+  }
+  .mode-copy small{line-height:1.35}
+
+  .experience-badge{
+    top:calc(env(safe-area-inset-top) + 54px);
+    left:9px;
+  }
+
+  .ar-story{
+    bottom:calc(env(safe-area-inset-bottom) + 76px);
+    width:calc(100vw - 20px);
+    padding:11px 12px;
+    border-radius:16px;
+  }
+  .ar-story>strong{font-size:13px}
+  .ar-story>p{font-size:9px}
+
+  html[data-experience="lab"] #experimentPanel{
+    bottom:calc(env(safe-area-inset-bottom) + 8px);
+    width:calc(100vw - 12px);
+    max-height:45dvh;
+    padding:9px;
+    border-radius:18px;
+  }
+  html[data-experience="lab"] .experiment-grid{
+    grid-template-columns:repeat(5,minmax(60px,1fr));
+    overflow-x:auto;
+    gap:5px;
+  }
+  html[data-experience="lab"] .experiment-object{
+    min-height:64px;
+  }
+  html[data-experience="lab"] .experiment-object small{
+    display:none;
+  }
+  html[data-experience="lab"] .experiment-readout{
+    padding:9px 10px 9px 70px;
+    min-height:62px;
+  }
+}
+
+/* Very small phones: two rows of objects, larger touch targets. */
+@media(max-width:390px){
+  html[data-experience="lab"] .experiment-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    overflow:visible;
+  }
+  html[data-experience="lab"] #experimentPanel{
+    max-height:49dvh;
+  }
+}
