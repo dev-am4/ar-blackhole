@@ -154,3 +154,37 @@ Mission Mode เปลี่ยน Gravity Lab ให้เป็นกิจก
 3. **ถึงขอบฟ้าเหตุการณ์** — ส่ง Satellite ให้ถึง Event Horizon
 
 Mission HUD แสดงขั้นตอนปัจจุบัน, progress, ชี้ปุ่มวัตถุที่ควรเลือก และแสดงผลสรุปเมื่อสำเร็จ ผู้ชมยังสามารถลองวัตถุอื่นระหว่างภารกิจได้โดยไม่ทำให้ภารกิจล้มเหลว
+
+
+## V3 — Two Experience Reset
+
+Public visitor UX is intentionally reduced to two paths only.
+
+### 1. AR · วางหลุมดำตรงหน้า
+
+Flow: scan/open → allow rear camera → aim → place → watch a short guided visual sequence.
+
+The AR story demonstrates one stellar-mass black-hole formation pathway and then reveals the visible environment around the black hole:
+
+1. Massive star
+2. Stellar core collapse
+3. Black hole formation
+4. Accretion disk
+5. Gravitational light bending
+6. Event horizon
+
+After the sequence, the visitor only keeps the essential actions: capture/share, place again, exit.
+
+### 2. BLACK HOLE LAB
+
+The simulator opens directly with the black hole already present. Visitors choose one of five experiment objects:
+
+- Earth
+- Star
+- Satellite
+- Comet
+- Photon
+
+The existing Gravity Lab engine supplies stage-by-stage educational readouts while the selected object moves through the gravitational field.
+
+Legacy Mission Mode, Physics sliders, Cinema controls, labels, plasma toggles, and reference video remain in the codebase for rollback/operator development but are removed from the public visitor flow.

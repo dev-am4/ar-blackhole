@@ -110,6 +110,23 @@ let userSpin = 0.85;
 let userBrightness = 1.0;
 let enableLensingWarp = true;
 
+// Visitor experience: only two public paths.
+let visitorExperience = 'intro'; // intro | ar | lab
+let formationStar = null;
+let arStoryStart = 0;
+let arStoryRunning = false;
+let arStoryStage = -1;
+
+function setVisitorExperience(name) {
+  visitorExperience = name;
+  document.documentElement.dataset.experience = name;
+  const badge = $('#experienceBadge');
+  if (badge) badge.textContent = name === 'lab' ? 'BLACK HOLE LAB' : name === 'ar' ? 'AR VIEW' : '';
+
+  const snap = $('#snapshotBtn');
+  if (snap) snap.style.display = (name === 'ar' || name === 'lab') ? 'none' : '';
+}
+
 // Intro / Parallax state
 const mouse = { x: 0, y: 0, targetX: 0, targetY: 0 };
 window.addEventListener('mousemove', (e) => {
@@ -1031,6 +1048,202 @@ function buildCosmicSpace() {
 }
 
 // -----------------------------------------------------------------------------
+// AR cinematic story · one concise scientific sequence
+// -----------------------------------------------------------------------------
+function makeFormationStar() {
+  const group = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.34, MOBILE_DEVICE ? 24 : 36, MOBILE_DEVICE ? 18 : 28),
+    new THREE.MeshBasicMaterial({ color:0xffe6b0 })
+  );
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.48, MOBILE_DEVICE ? 20 : 32, MOBILE_DEVICE ? 14 : 22),
+    new THREE.MeshBasicMaterial({
+      color:0xff9b4a,
+      transparent:true,
+      opacity:.18,
+      blending:THREE.AdditiveBlending,
+      depthWrite:false
+    })
+  );
+  group.add(core,halo);
+  return group;
+}
+
+function removeFormationStar() {
+  if (!formationStar) return;
+  formationStar.traverse((child) => {
+    child.geometry?.dispose?.();
+    child.material?.dispose?.();
+  });
+  formationStar.parent?.remove(formationStar);
+  formationStar = null;
+}
+
+const AR_STORY = [
+  {
+    at:0,
+    step:'01 · MASSIVE STAR',
+    title:'ดาวฤกษ์มวลมาก',
+    text:'หลุมดำมวลดาวฤกษ์บางส่วนเริ่มต้นจากดาวฤกษ์มวลมาก'
+  },
+  {
+    at:4,
+    step:'02 · STELLAR COLLAPSE',
+    title:'แกนดาวยุบตัว',
+    text:'เมื่อเชื้อเพลิงหมด แกนของดาวบางดวงอาจยุบตัวภายใต้แรงโน้มถ่วง'
+  },
+  {
+    at:7,
+    step:'03 · BLACK HOLE',
+    title:'หลุมดำก่อตัว',
+    text:'บริเวณใจกลางกลายเป็นเงามืดที่แสงจากภายในไม่สามารถกลับออกมาได้'
+  },
+  {
+    at:11,
+    step:'04 · ACCRETION DISK',
+    title:'สสารหมุนวนและร้อนขึ้น',
+    text:'ก๊าซรอบหลุมดำอาจก่อตัวเป็นจานสะสมมวลที่ร้อนและสว่าง'
+  },
+  {
+    at:16,
+    step:'05 · LIGHT BENDS',
+    title:'เส้นทางของแสงโค้ง',
+    text:'มวลมหาศาลทำให้กาล-อวกาศโค้ง จึงเห็นแสงด้านหลังบิดอ้อมหลุมดำ'
+  },
+  {
+    at:21,
+    step:'06 · EVENT HORIZON',
+    title:'ขอบฟ้าเหตุการณ์',
+    text:'เมื่อผ่านขอบเขตนี้แล้ว ไม่มีแสงหรือสัญญาณใดกลับออกมาถึงผู้สังเกตภายนอกได้'
+  }
+];
+
+function setARStoryStage(index) {
+  if (index === arStoryStage || index < 0 || index >= AR_STORY.length) return;
+  arStoryStage = index;
+  const data = AR_STORY[index];
+  const panel = $('#arStory');
+  panel?.classList.add('active');
+  panel?.setAttribute('aria-hidden','false');
+  if ($('#arStoryStep')) $('#arStoryStep').textContent = data.step;
+  if ($('#arStoryTitle')) $('#arStoryTitle').textContent = data.title;
+  if ($('#arStoryText')) $('#arStoryText').textContent = data.text;
+}
+
+function startARStory() {
+  if (!blackHole || visitorExperience !== 'ar') return;
+  removeFormationStar();
+
+  formationStar = makeFormationStar();
+  formationStar.position.copy(blackHole.position);
+  formationStar.position.y += .78 * baseScale;
+  formationStar.scale.setScalar(baseScale);
+  scene.add(formationStar);
+
+  blackHole.visible = false;
+  blackHole.scale.setScalar(baseScale * userMass * .3);
+  if (blackHole.userData.particles) blackHole.userData.particles.visible = false;
+  if (blackHole.userData.jets) blackHole.userData.jets.visible = false;
+
+  userBrightness = .12;
+  enableLensingWarp = false;
+  jetEnabled = false;
+
+  arStoryStart = performance.now();
+  arStoryRunning = true;
+  arStoryStage = -1;
+  setARStoryStage(0);
+
+  if (moveBtn) moveBtn.hidden = true;
+  if ($('#snapshotBtn')) $('#snapshotBtn').style.display = 'none';
+  setStatus('กำลังเล่าเรื่องหลุมดำ', true);
+}
+
+function finishARStory() {
+  arStoryRunning = false;
+  removeFormationStar();
+
+  blackHole.visible = true;
+  blackHole.scale.setScalar(baseScale * userMass);
+  if (blackHole.userData.particles) blackHole.userData.particles.visible = true;
+  if (blackHole.userData.jets) blackHole.userData.jets.visible = false;
+
+  userBrightness = 1.0;
+  enableLensingWarp = true;
+
+  const panel = $('#arStory');
+  panel?.classList.remove('active');
+  panel?.setAttribute('aria-hidden','true');
+
+  if (moveBtn) {
+    moveBtn.hidden = false;
+    moveBtn.textContent = 'วางใหม่';
+  }
+  if ($('#snapshotBtn')) $('#snapshotBtn').style.display = '';
+  if (hint) {
+    hint.style.opacity = '1';
+    hint.textContent = 'หลุมดำพร้อมแล้ว · ถ่ายภาพ หรือวางใหม่';
+    setTimeout(() => { if (hint) hint.style.opacity = '0'; }, 3200);
+  }
+  setStatus('AR · BLACK HOLE', true);
+}
+
+function updateARStory(now) {
+  if (!arStoryRunning || visitorExperience !== 'ar' || !blackHole) return;
+  const t = (now - arStoryStart) / 1000;
+
+  let stage = 0;
+  for (let i=0;i<AR_STORY.length;i++) {
+    if (t >= AR_STORY[i].at) stage = i;
+  }
+  setARStoryStage(stage);
+
+  const progress = Math.min(1,t/25);
+  if ($('#arStoryProgress')) $('#arStoryProgress').style.transform = 'scaleX(' + progress + ')';
+
+  if (formationStar) {
+    const collapse = THREE.MathUtils.clamp((t - 4) / 3,0,1);
+    const pulse = 1 + Math.sin(t * 5) * .035 * (1-collapse);
+    formationStar.scale.setScalar(baseScale * THREE.MathUtils.lerp(pulse,.06,collapse));
+    formationStar.rotation.y += .008;
+    formationStar.visible = t < 7.1;
+  }
+
+  if (t >= 6.2) {
+    blackHole.visible = true;
+    const reveal = THREE.MathUtils.smoothstep(t,6.2,9.5);
+    blackHole.scale.setScalar(baseScale * userMass * THREE.MathUtils.lerp(.22,1,reveal));
+    userBrightness = THREE.MathUtils.lerp(.08, t >= 11 ? 1.0 : .24, THREE.MathUtils.clamp((t-7)/5,0,1));
+  }
+
+  if (t >= 11 && blackHole.userData.particles) blackHole.userData.particles.visible = true;
+  if (t >= 16) enableLensingWarp = true;
+
+  if (t >= 25) finishARStory();
+}
+
+function showLabExperience() {
+  setVisitorExperience('lab');
+  const panel = $('#experimentPanel');
+  panel?.classList.add('active');
+  panel?.setAttribute('aria-hidden','false');
+
+  if ($('#snapshotBtn')) $('#snapshotBtn').style.display = 'none';
+  if (placeBtn) placeBtn.hidden = true;
+  if (moveBtn) moveBtn.hidden = true;
+  if (pulseBtn) pulseBtn.hidden = true;
+  if ($('#toolsBtn')) $('#toolsBtn').hidden = true;
+
+  if (hint) {
+    hint.style.transition = 'none';
+    hint.style.opacity = '1';
+    hint.textContent = 'เลือกวัตถุด้านล่างเพื่อเริ่มการทดลอง';
+  }
+  setStatus('BLACK HOLE LAB', true);
+}
+
+// -----------------------------------------------------------------------------
 // Scene & Renderer Initialization
 // -----------------------------------------------------------------------------
 function buildScene() {
@@ -1099,55 +1312,33 @@ function placeBlackHole() {
     moving = false;
     placed = true;
     if (placeBtn) placeBtn.hidden = true;
-    if (moveBtn) moveBtn.hidden = (mode === 'simulator');
-    if (pulseBtn) pulseBtn.hidden = false;
-    const earthSimBtn = $('#earthSimBtn');
-    if (earthSimBtn) earthSimBtn.style.display = 'block';
-    const labelToggleBtn = $('#labelToggleBtn');
-    if (labelToggleBtn) labelToggleBtn.style.display = 'block';
-    const soundToggleBtn = $('#soundToggleBtn');
-    if (soundToggleBtn) soundToggleBtn.style.display = 'block';
-    const cinemaBtn = $('#cinemaBtn');
-    if (cinemaBtn) cinemaBtn.style.display = (mode === 'simulator') ? 'block' : 'none';
-    const jetToggleBtn = $('#jetToggleBtn');
-    if (jetToggleBtn) jetToggleBtn.style.display = 'block';
-    const physicsBtn = $('#physicsBtn');
-    if (physicsBtn) physicsBtn.style.display = 'block';
-    const infoBtn = $('#infoBtn');
-    if (infoBtn) infoBtn.style.display = 'block';
-    const videoBtn = $('#videoBtn');
-    if (videoBtn) videoBtn.style.display = 'block';
-    const missionBtn = $('#missionBtn');
-    if (missionBtn) missionBtn.style.display = 'block';
-    const experimentBtn = $('#experimentBtn');
-    if (experimentBtn) experimentBtn.style.display = 'block';
-    const toolsBtn = $('#toolsBtn');
-    if (toolsBtn) toolsBtn.hidden = false;
-    ensureCinematicLayer();
-    resetKioskIdle();
-    const cinemaBar = $('#cinemaBar');
-    if (cinemaBar) cinemaBar.style.display = 'none';
+    if (pulseBtn) pulseBtn.hidden = true;
+    if ($('#toolsBtn')) $('#toolsBtn').hidden = true;
+    $('#toolTray')?.classList.remove('active');
+    $('#missionPanel')?.classList.remove('active');
+    $('#physicsPanel')?.classList.remove('active');
+    $('#infoDrawer')?.classList.remove('active');
+    $('#cinemaBar')?.style && ($('#cinemaBar').style.display = 'none');
     if (arUI) arUI.classList.remove('ready-to-place');
+    resetKioskIdle();
 
-    if (hint) {
-      hint.style.opacity = '1';
-      hint.textContent = mode === 'xr'
-        ? 'เดินเข้าใกล้เพื่อเพิ่มแรงโน้มถ่วง · ใช้สองนิ้วย่อ/ขยาย'
-        : mode === 'simulator'
-          ? 'เลื่อนหน้าจอเพื่อหมุนมุมมอง • ซูมเข้าออกได้'
-          : 'แตะค้างบนจอหรือกด “เร่งแรงดูด” · เดินเข้าใกล้หลุมดำ';
-          
-      // Auto-hide hint for Zero UI
-      setTimeout(() => {
-        hint.style.transition = 'opacity 1s ease';
+    if (visitorExperience === 'lab') {
+      showLabExperience();
+    } else {
+      if (moveBtn) moveBtn.hidden = true;
+      if (hint) {
+        hint.style.transition = 'opacity .2s ease';
         hint.style.opacity = '0';
-      }, 3500);
+      }
+      startARStory();
     }
-    setStatus('หลุมดำทำงาน', true);
   }
 }
 
 function moveBlackHole() {
+  arStoryRunning = false;
+  removeFormationStar();
+  $('#arStory')?.classList.remove('active');
   clearGravityLab();
   moving = true;
   placed = false;
@@ -1306,6 +1497,7 @@ function renderCommon(activeCamera, now) {
   lastFrame = now;
   adaptMobileQuality(dt);
   updateGravity(activeCamera, dt);
+  updateARStory(now);
   animateRealisticBlackHole(now / 1000, activeCamera);
   publishScreenAnchor(blackHole, activeCamera);
   updateARLabels(activeCamera);
@@ -1654,7 +1846,12 @@ function startSimulatorMode() {
     hint.style.transition = 'none';
     hint.style.opacity = '1';
   }
-  setStatus('พร้อมวางหลุมดำ', true);
+  setStatus(visitorExperience === 'lab' ? 'กำลังเตรียมห้องทดลอง' : 'พร้อมวางหลุมดำ', true);
+
+  if (visitorExperience === 'lab') {
+    placeBlackHole();
+    showLabExperience();
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -2410,6 +2607,7 @@ async function startFallback() {
 async function launch() {
   if (launching) return;
   launching = true;
+  setVisitorExperience('ar');
   audio = initAudio();
   ensureCinematicLayer();
 
@@ -2485,6 +2683,7 @@ function setupInteractiveUI() {
   const simIntroBtn = $('#simIntroBtn');
   if (simIntroBtn) {
     simIntroBtn.addEventListener('click', () => {
+      setVisitorExperience('lab');
       audio = initAudio();
       ensureCinematicLayer();
 
@@ -2597,6 +2796,10 @@ function setupInteractiveUI() {
   }
 
   closeExperimentBtn?.addEventListener('click', () => {
+    if (visitorExperience === 'lab') {
+      clearGravityLab();
+      return;
+    }
     experimentPanel?.classList.remove('active');
     experimentPanel?.setAttribute('aria-hidden','true');
     experimentBtn?.classList.remove('active');
@@ -2889,4 +3092,5 @@ window.addEventListener('beforeunload', () => {
 
 // Initialize UI binders on page load
 setupInteractiveUI();
+setVisitorExperience('intro');
 startIntroMode();
