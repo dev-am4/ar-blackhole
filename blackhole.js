@@ -29,7 +29,7 @@ let renderer, scene, camera, reticle, blackHole, simulatorStars;
 let xrSession = null;
 let xrHitSource = null;
 let stream = null;
-let mode = 'boot'; // 'xr' | 'fallback' | 'simulator'
+let mode = 'intro'; // 'intro' | 'warp' | 'xr' | 'fallback' | 'simulator'
 let moving = true;
 let placed = false;
 let reticleReady = false;
@@ -39,6 +39,13 @@ let userMass = 1.0;
 let userSpin = 0.85;
 let userBrightness = 1.0;
 let enableLensingWarp = true;
+
+// Intro / Parallax state
+const mouse = { x: 0, y: 0, targetX: 0, targetY: 0 };
+window.addEventListener('mousemove', (e) => {
+  mouse.targetX = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.targetY = -(e.clientY / window.innerHeight) * 2 + 1;
+});
 
 // Interaction & Physics
 let pinchStart = 0;
@@ -312,17 +319,20 @@ function createRelativisticRaymarchedBlackHole() {
 
       vec3 getCosmicStarfield(vec3 dir) {
         vec3 col = vec3(0.003, 0.004, 0.009);
+        
+        // Milky Way Band
         float galacticBand = exp(-abs(dir.y) * 4.4);
-        vec3 nebulaCol = mix(vec3(0.09, 0.04, 0.17), vec3(0.22, 0.11, 0.05), dir.x * 0.5 + 0.5);
-        col += nebulaCol * galacticBand * 0.9;
+        float coreGlow = exp(-abs(dir.x) * 2.0 - abs(dir.y) * 6.0) * 1.5;
+        vec3 nebulaCol = mix(vec3(0.05, 0.08, 0.25), vec3(0.4, 0.15, 0.1), dir.x * 0.5 + 0.5);
+        col += nebulaCol * galacticBand * 0.8 + vec3(0.2, 0.1, 0.05) * coreGlow;
 
-        vec3 p = dir * 140.0;
+        vec3 p = dir * 180.0;
         vec3 fl = floor(p);
         float starRand = fract(sin(dot(fl, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
-        if (starRand > 0.982) {
+        if (starRand > 0.975) {
           vec3 starFrac = fract(p) - 0.5;
           float starDist = length(starFrac);
-          float starBright = smoothstep(0.40, 0.02, starDist) * pow(starRand, 16.0) * 8.5;
+          float starBright = smoothstep(0.40, 0.02, starDist) * pow(starRand, 12.0) * 12.0;
           vec3 starTint = mix(vec3(0.78, 0.88, 1.0), vec3(1.0, 0.84, 0.55), fract(starRand * 31.0));
           col += starTint * starBright;
         }
@@ -729,11 +739,18 @@ function placeBlackHole() {
     if (arUI) arUI.classList.remove('ready-to-place');
 
     if (hint) {
+      hint.style.opacity = '1';
       hint.textContent = mode === 'xr'
         ? 'เดินเข้าใกล้เพื่อเพิ่มแรงโน้มถ่วง · ใช้สองนิ้วย่อ/ขยาย'
         : mode === 'simulator'
           ? 'ลากหน้าจอเพื่อหมุนรอบหลุมดำ · ซูมเข้าใกล้เพื่อเพิ่มแรงโน้มถ่วง'
           : 'แตะค้างบนจอหรือกด “เร่งแรงดูด” · เดินเข้าใกล้หลุมดำ';
+          
+      // Auto-hide hint for Zero UI
+      setTimeout(() => {
+        hint.style.transition = 'opacity 1s ease';
+        hint.style.opacity = '0';
+      }, 3500);
     }
     setStatus('หลุมดำทำงาน', true);
   }
@@ -743,6 +760,10 @@ function moveBlackHole() {
   moving = true;
   placed = false;
   blackHole.visible = false;
+  if (hint) {
+    hint.style.transition = 'none';
+    hint.style.opacity = '1';
+  }
   if (placeBtn) placeBtn.hidden = false;
   if (moveBtn) moveBtn.hidden = true;
   if (pulseBtn) pulseBtn.hidden = true;
@@ -764,6 +785,13 @@ function orientCamera() {
 }
 
 function updateGravity(activeCamera, dt) {
+  if (mode === 'intro' || mode === 'warp') {
+    // Cinematic gravity for intro
+    gravityTarget = 0.65;
+    gravity += (gravityTarget - gravity) * Math.min(1, dt * 2);
+    return;
+  }
+
   if (!placed || !blackHole.visible) {
     gravityTarget = 0;
     gravity += (gravityTarget - gravity) * Math.min(1, dt * 7);
@@ -831,7 +859,61 @@ function renderCommon(activeCamera, now) {
   updateGravity(activeCamera, dt);
   animateRealisticBlackHole(now / 1000, activeCamera);
   publishScreenAnchor(blackHole, activeCamera);
+  updateARLabels(activeCamera);
+  updateProbes(dt, activeCamera);
   updateHud(activeCamera);
+}
+
+// -----------------------------------------------------------------------------
+// Spatial AR Labels Logic
+// -----------------------------------------------------------------------------
+const arLabels = {
+  horizon: { id: 'labelHorizon', offset: new THREE.Vector3(0.2, -0.2, 0), el: null },
+  disk: { id: 'labelDisk', offset: new THREE.Vector3(1.6, 0.1, 0), el: null },
+  photon: { id: 'labelPhoton', offset: new THREE.Vector3(-0.65, 0.45, 0), el: null }
+};
+
+function initARLabels() {
+  for (const key in arLabels) {
+    arLabels[key].el = $('#' + arLabels[key].id);
+  }
+}
+
+function updateARLabels(activeCamera) {
+  if (!blackHole || !blackHole.visible || moving) {
+    for (const key in arLabels) {
+      if (arLabels[key].el) arLabels[key].el.classList.remove('visible');
+    }
+    return;
+  }
+
+  const { core } = blackHole.userData;
+  const scale = blackHole.scale.x;
+
+  for (const key in arLabels) {
+    const lbl = arLabels[key];
+    if (!lbl.el) continue;
+
+    const wPos = new THREE.Vector3();
+    core.getWorldPosition(wPos);
+    
+    const lOff = lbl.offset.clone().multiplyScalar(scale);
+    lOff.applyQuaternion(blackHole.quaternion);
+    wPos.add(lOff);
+
+    const ndc = wPos.clone().project(activeCamera);
+
+    if (ndc.z > 1.0 || ndc.z < -1.0) {
+      lbl.el.classList.remove('visible');
+      continue;
+    }
+
+    const x = (ndc.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-ndc.y * 0.5 + 0.5) * window.innerHeight;
+
+    lbl.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    lbl.el.classList.add('visible');
+  }
 }
 
 function renderFallback(now) {
@@ -875,6 +957,50 @@ function renderSimulator(now) {
   updateSimulatorCamera();
   renderCommon(camera, now);
   renderer.render(scene, camera);
+}
+
+function renderIntro(now) {
+  if (mode !== 'intro' && mode !== 'warp') return;
+  
+  // Smooth mouse interpolation
+  mouse.x += (mouse.targetX - mouse.x) * 0.05;
+  mouse.y += (mouse.targetY - mouse.y) * 0.05;
+
+  if (mode === 'intro') {
+    // Cinematic slow orbit & parallax
+    const t = now * 0.0002;
+    camera.position.x = Math.sin(t) * 1.5 + mouse.x * 0.5;
+    camera.position.y = EYE_HEIGHT + mouse.y * 0.5;
+    camera.position.z = Math.cos(t) * 1.5 + 4.5;
+    camera.lookAt(0, EYE_HEIGHT, 0);
+  } else if (mode === 'warp') {
+    // Warp transition effect
+    camera.position.z *= 0.92; // Zoom in fast
+    camera.fov = Math.min(camera.fov + 4, 150); // Increase FOV for hyperspace stretch
+    camera.updateProjectionMatrix();
+  }
+
+  // Also rotate the blackhole slightly for dynamic background
+  if (blackHole) {
+    blackHole.rotation.y = now * 0.0001;
+  }
+
+  renderCommon(camera, now);
+  renderer.render(scene, camera);
+}
+
+function startIntroMode() {
+  mode = 'intro';
+  buildScene();
+  blackHole.visible = true;
+  blackHole.position.set(0, EYE_HEIGHT, 0); // Center it in front of camera
+  gravityTarget = 0.5; // Give it some gravity to start bending light
+  
+  // Set initial cinematic camera
+  camera.position.set(0, EYE_HEIGHT, 5.0);
+  camera.lookAt(0, EYE_HEIGHT, 0);
+  
+  renderer.setAnimationLoop(renderIntro);
 }
 
 // -----------------------------------------------------------------------------
@@ -972,6 +1098,86 @@ async function startXR(session) {
   if (hint) hint.textContent = 'เล็งกล้องลงพื้นที่โล่ง แล้วขยับช้า ๆ';
 }
 
+// -----------------------------------------------------------------------------
+// Interactive Probes (Spaghettification & Redshift)
+// -----------------------------------------------------------------------------
+const probes = [];
+
+function shootProbe(e) {
+  const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+  const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+  
+  const ndc = new THREE.Vector2(
+    (clientX / window.innerWidth) * 2 - 1,
+    -(clientY / window.innerHeight) * 2 + 1
+  );
+
+  raycaster.setFromCamera(ndc, camera);
+  
+  // Create probe mesh
+  const geometry = new THREE.SphereGeometry(0.02, 16, 16);
+  const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const mesh = new THREE.Mesh(geometry, material);
+  
+  // Start slightly in front of camera
+  mesh.position.copy(camera.position).add(raycaster.ray.direction.clone().multiplyScalar(0.5));
+  scene.add(mesh);
+
+  probes.push({
+    mesh,
+    velocity: raycaster.ray.direction.clone().multiplyScalar(4.0), // Initial speed
+    life: 0
+  });
+}
+
+function updateProbes(dt, activeCamera) {
+  if (!blackHole || !blackHole.visible) return;
+  
+  const corePos = new THREE.Vector3();
+  blackHole.userData.core.getWorldPosition(corePos);
+  
+  const rs = 0.38 * userMass * baseScale; // Schwarzschild radius (approx)
+
+  for (let i = probes.length - 1; i >= 0; i--) {
+    const p = probes[i];
+    p.life += dt;
+
+    const dirToCore = corePos.clone().sub(p.mesh.position);
+    const dist = dirToCore.length();
+    
+    // Gravity attraction
+    const gravityForce = dirToCore.normalize().multiplyScalar(10.0 * userMass / (dist * dist));
+    p.velocity.add(gravityForce.multiplyScalar(dt));
+
+    // Time Dilation: As it gets closer to rs, it slows down visually
+    const timeDilation = Math.max(0.01, Math.sqrt(Math.max(0.001, 1.0 - (rs / dist))));
+    
+    // Move probe
+    p.mesh.position.add(p.velocity.clone().multiplyScalar(dt * timeDilation));
+
+    // Spaghettification (Stretch along velocity vector)
+    const speed = p.velocity.length();
+    if (speed > 0.1) {
+      p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.velocity.clone().normalize());
+      // Stretch more as it gets closer
+      const stretch = 1.0 + (rs / Math.max(dist, rs)) * 15.0;
+      p.mesh.scale.set(1.0 / stretch, stretch, 1.0 / stretch);
+    }
+
+    // Gravitational Redshift (White -> Yellow -> Red -> Dark Red)
+    const redshiftFactor = Math.max(0, 1.0 - (rs / dist));
+    p.mesh.material.color.setHSL(0.0, 1.0, redshiftFactor * 0.5 + 0.1);
+
+    // Remove if it crosses event horizon or lives too long
+    if (dist < rs * 1.05 || p.life > 10) {
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+      probes.splice(i, 1);
+    }
+  }
+}
+
 async function startFallback(orientationGranted) {
   mode = 'fallback';
   stream = await navigator.mediaDevices.getUserMedia({
@@ -1011,28 +1217,44 @@ async function launch() {
   const orientationPromise = requestOrientation();
   const xrSessionPromise = requestXRSession();
   startBtn.disabled = true;
-  startBtn.textContent = 'กำลังเปิดกล้อง…';
+  startBtn.textContent = 'เตรียมเข้าสู่อวกาศ...';
 
-  try {
-    buildScene();
-    intro.style.display = 'none';
-    arUI.classList.add('on');
-    setStatus('กำลังตรวจ AR', false);
+  // Trigger Warp Effect
+  mode = 'warp';
+  intro.style.opacity = '0';
+  intro.style.transition = 'opacity 0.8s ease';
+  
+  // Create a cinematic flash
+  const flash = document.createElement('div');
+  flash.className = 'flash-overlay active';
+  document.body.appendChild(flash);
+  
+  setTimeout(() => flash.classList.remove('active'), 800);
 
-    const session = await xrSessionPromise;
-    if (session) {
-      await startXR(session);
-    } else if (navigator.mediaDevices?.getUserMedia) {
-      const orientation = await orientationPromise;
-      await startFallback(orientation);
-    } else {
+  setTimeout(async () => {
+    try {
+      intro.style.display = 'none';
+      arUI.classList.add('on');
+      setStatus('กำลังตรวจ AR', false);
+
+      // Reset camera from warp
+      camera.fov = 62;
+      camera.updateProjectionMatrix();
+
+      const session = await xrSessionPromise;
+      if (session) {
+        await startXR(session);
+      } else if (navigator.mediaDevices?.getUserMedia) {
+        const orientation = await orientationPromise;
+        await startFallback(orientation);
+      } else {
+        startSimulatorMode();
+      }
+    } catch (e) {
+      console.warn('[AR Black Hole] Camera/XR fallback to Simulator:', e);
       startSimulatorMode();
     }
-  } catch (e) {
-    console.warn('[AR Black Hole] Camera/XR fallback to Simulator:', e);
-    // Graceful fallback to 3D Simulator so user is never blocked
-    startSimulatorMode();
-  }
+  }, 1000); // 1 second warp delay
 }
 
 function updateHud(activeCamera) {
@@ -1052,13 +1274,72 @@ function updateHud(activeCamera) {
 // Interactive Physics & Astrophysics UI Controls
 // -----------------------------------------------------------------------------
 function setupInteractiveUI() {
+  initARLabels();
+
   const simIntroBtn = $('#simIntroBtn');
   if (simIntroBtn) {
     simIntroBtn.addEventListener('click', () => {
       audio = initAudio();
-      startSimulatorMode();
+      
+      mode = 'warp';
+      intro.style.opacity = '0';
+      intro.style.transition = 'opacity 0.8s ease';
+      
+      const flash = document.createElement('div');
+      flash.className = 'flash-overlay active';
+      document.body.appendChild(flash);
+      setTimeout(() => flash.classList.remove('active'), 800);
+
+      setTimeout(() => {
+        intro.style.display = 'none';
+        arUI.classList.add('on');
+        camera.fov = 62;
+        camera.updateProjectionMatrix();
+        startSimulatorMode();
+      }, 1000);
     });
   }
+
+  // Snapshot functionality
+  const snapshotBtn = $('#snapshotBtn');
+  const flashOverlay = $('#flashOverlay');
+  if (snapshotBtn) {
+    snapshotBtn.addEventListener('click', () => {
+      // Hide UI
+      document.querySelector('.topbar').style.display = 'none';
+      document.getElementById('arLabels').style.display = 'none';
+      
+      // Wait a frame for UI to hide, then capture
+      setTimeout(() => {
+        const canvas = renderer.domElement;
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Show flash
+        if (flashOverlay) {
+          flashOverlay.classList.add('active');
+          setTimeout(() => flashOverlay.classList.remove('active'), 50);
+        }
+
+        // Restore UI
+        document.querySelector('.topbar').style.display = 'flex';
+        document.getElementById('arLabels').style.display = 'block';
+
+        // Trigger download
+        const link = document.createElement('a');
+        link.download = 'blackhole_snapshot.png';
+        link.href = imgData;
+        link.click();
+      }, 50);
+    });
+  }
+
+  // Shoot probes on tap
+  window.addEventListener('pointerdown', (e) => {
+    // Only shoot if in AR or Simulator and not interacting with UI
+    if ((mode !== 'xr' && mode !== 'fallback' && mode !== 'simulator') || !placed) return;
+    if (e.target.closest('button, .physics-panel, .info-drawer, .ar-label, .topbar')) return;
+    shootProbe(e);
+  });
 
   // Physics Drawer & Inspector
   const physicsBtn = $('#physicsBtn');
@@ -1200,3 +1481,4 @@ window.addEventListener('beforeunload', () => {
 
 // Initialize UI binders on page load
 setupInteractiveUI();
+startIntroMode();

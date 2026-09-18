@@ -16,45 +16,50 @@
 
   <main id="intro">
     <div class="intro-shell">
-      <div class="venue">ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์</div>
-      <div class="brand">ZONE 5 · SPACE MISSION INTERACTIVE</div>
-      <div class="supplement-badge">STATION 5 · ASTROPHYSICAL BLACK HOLE AR</div>
+      <div class="badge-minimal">นิทรรศการ · ศูนย์วิทยาศาสตร์นครสวรรค์</div>
 
-      <div class="preview" aria-hidden="true">
-        <span class="lens-ring"></span>
+      <h1 class="title-minimal">Black Hole Simulator<br><span>แบบจำลองฟิสิกส์หลุมดำสมจริง 3 มิติ</span></h1>
+
+      <div class="intro-actions-minimal">
+        <button id="startBtn" class="btn-ar">เปิดกล้อง AR สำรวจในพื้นที่จริง</button>
+        <button id="simIntroBtn" class="btn-3d">เข้าสู่โหมดจำลอง 3D Simulator</button>
+        <button id="introVideoBtn" class="btn-video">🎥 ชมวิดีโออธิบายการทำงาน</button>
       </div>
-
-      <h1>หลุมดำเสมือนจริง<span>Astrophysical Black Hole 3D/AR</span></h1>
-      <p class="lede">แบบจำลองตามหลักฟิสิกส์ดาราศาสตร์: สัมผัสขอบฟ้าเหตุการณ์ (Event Horizon), วงแหวนโฟตอน, จานสะสมมวลหมุนสัมพัทธ์ (Doppler Beaming) และการบิดเบี้ยวของแสงจากเลนส์ความโน้มถ่วง (Gravitational Lensing)</p>
-
-      <div class="steps" aria-label="วิธีเล่น">
-        <div class="step"><b>01</b>วางตำแหน่ง</div>
-        <div class="step"><b>02</b>หมุนสำรวจ 360°</div>
-        <div class="step"><b>03</b>เข้าใกล้รับแรงดึงดูด</div>
-      </div>
-
-      <div class="intro-actions">
-        <button id="startBtn" class="primary-launch-btn">เปิดกล้อง AR สำรวจในพื้นที่จริง</button>
-        <button id="simIntroBtn" class="secondary-sim-btn">เข้าสู่ห้องจำลองอวกาศ 3D (3D Simulator)</button>
-        <button id="introVideoBtn" class="secondary-sim-btn" style="background:rgba(255,100,50,0.15); color: #ffd1b3; border-color: rgba(255,150,100,0.3);">🎥 ชมวิดีโออธิบายการทำงานแบบสมจริง</button>
-      </div>
-      <p class="compat">รองรับทั้งมือถือ แท็บเล็ต และคอมพิวเตอร์ · จำลองฟิสิกส์ดาราศาสตร์สัมพัทธภาพทั่วไป</p>
     </div>
   </main>
 
   <section id="ar" aria-label="AR Black Hole · Station 5 · Space Mission Interactive Zone">
+    <div id="flashOverlay" class="flash-overlay"></div>
     <div class="topbar">
       <span id="statusDot" class="status-dot"></span>
       <span id="statusText" class="status-text">กำลังเตรียม</span>
       <div class="topbar-actions">
-        <button id="physicsBtn" class="action-pill" title="ปรับแต่งฟิสิกส์">⚙️ ฟิสิกส์</button>
-        <button id="infoBtn" class="action-pill" title="องค์ประกอบทางวิทยาศาสตร์">🌌 ความรู้หลุมดำ</button>
-        <button id="videoBtn" class="action-pill" title="วิดีโอสมจริง">🎥 วิดีโอ</button>
+        <!-- Hidden in minimal mode, but keep in DOM for logic -->
+        <button id="physicsBtn" class="action-pill" title="ปรับแต่งฟิสิกส์" style="display:none">⚙️</button>
+        <button id="infoBtn" class="action-pill" title="ความรู้" style="display:none">🌌</button>
+        <button id="videoBtn" class="action-pill" title="วิดีโอ" style="display:none">🎥</button>
+        <button id="snapshotBtn" class="action-pill" title="ถ่ายภาพ">📸 ถ่ายภาพ</button>
         <button id="exitBtn" class="exit">ออก</button>
       </div>
     </div>
 
-    <div class="gravity-card">
+    <!-- Spatial AR Labels Container -->
+    <div id="arLabels" class="ar-labels-container">
+      <div id="labelHorizon" class="ar-label">
+        <div class="ar-label-dot"></div><div class="ar-label-line"></div>
+        <div class="ar-label-text">ขอบฟ้าเหตุการณ์ (Event Horizon)</div>
+      </div>
+      <div id="labelDisk" class="ar-label">
+        <div class="ar-label-dot"></div><div class="ar-label-line"></div>
+        <div class="ar-label-text">จานสะสมมวลสาร (Accretion Disk)</div>
+      </div>
+      <div id="labelPhoton" class="ar-label">
+        <div class="ar-label-dot"></div><div class="ar-label-line"></div>
+        <div class="ar-label-text">วงแหวนโฟตอน (Photon Sphere)</div>
+      </div>
+    </div>
+
+    <div class="gravity-card" style="display:none">
       <div class="gravity-head">
         <span>BLACK HOLE · GRAVITATIONAL FIELD</span>
         <strong id="meterValue">0%</strong>
