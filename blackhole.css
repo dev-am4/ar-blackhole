@@ -1047,3 +1047,155 @@ html[data-experience="lab"] #snapshotBtn{display:none!important}
     max-height:49dvh;
   }
 }
+
+
+/* ==========================================================================
+   V3.1 · LAB CLARITY
+   Make cause/effect readable at a glance.
+   ========================================================================== */
+.lab-stage-rail{
+  position:absolute;
+  z-index:31;
+  top:calc(env(safe-area-inset-top) + 64px);
+  left:50%;
+  width:min(90vw,620px);
+  display:none;
+  grid-template-columns:auto 1fr auto 1fr auto 1fr auto;
+  align-items:center;
+  gap:7px;
+  padding:8px 10px;
+  border:1px solid rgba(157,190,255,.14);
+  border-radius:18px;
+  background:rgba(3,7,18,.88);
+  transform:translateX(-50%);
+  pointer-events:none;
+}
+.lab-stage-rail.active{display:grid}
+.lab-stage-rail>i{
+  height:1px;
+  background:rgba(255,255,255,.10);
+}
+.lab-stage{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  opacity:.34;
+  transition:opacity .2s ease,transform .2s ease;
+}
+.lab-stage b{
+  width:21px;height:21px;
+  display:grid;place-items:center;
+  border:1px solid rgba(157,190,255,.20);
+  border-radius:50%;
+  color:#8693aa;
+  font:700 8px/1 ui-monospace,SFMono-Regular,monospace;
+}
+.lab-stage span{
+  color:#8b98af;
+  font-size:8.5px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.lab-stage.done{opacity:.66}
+.lab-stage.done b{
+  border-color:rgba(115,226,174,.34);
+  color:#8de9b8;
+}
+.lab-stage.active{
+  opacity:1;
+  transform:scale(1.035);
+}
+.lab-stage.active b{
+  border-color:rgba(255,210,143,.68);
+  background:rgba(255,210,143,.12);
+  color:#ffd28f;
+  box-shadow:0 0 16px rgba(255,190,100,.16);
+}
+.lab-stage.active span{color:#fff1d8}
+
+.lab-object-tag{
+  position:fixed;
+  z-index:34;
+  top:0;left:0;
+  display:none;
+  min-width:96px;
+  padding:6px 8px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:11px;
+  background:rgba(2,5,12,.88);
+  text-align:center;
+  pointer-events:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.32);
+}
+.lab-object-tag.active{display:block}
+.lab-object-tag strong{
+  display:block;
+  color:#fff;
+  font-size:10px;
+}
+.lab-object-tag span{
+  display:block;
+  margin-top:2px;
+  color:#91a0b8;
+  font-size:7.5px;
+  line-height:1.25;
+}
+
+html[data-experience="lab"] #experimentPanel{
+  max-height:min(40dvh,350px);
+}
+html[data-experience="lab"] .experiment-readout{
+  border-color:rgba(141,220,255,.14);
+  background:rgba(0,0,0,.30);
+}
+html[data-experience="lab"] .experiment-readout.event{
+  border-color:rgba(255,180,110,.40);
+  background:rgba(255,132,60,.06);
+}
+html[data-experience="lab"] .experiment-object.active{
+  border-color:rgba(255,210,143,.60);
+  background:rgba(255,210,143,.09);
+  box-shadow:0 0 18px rgba(255,190,110,.10);
+}
+
+/* The stage rail takes over the old hint during simulation. */
+html[data-experience="lab"] .hint{
+  top:calc(env(safe-area-inset-top) + 112px);
+  font-size:9px;
+}
+
+@media(max-width:700px){
+  .lab-stage-rail{
+    top:calc(env(safe-area-inset-top) + 56px);
+    width:calc(100vw - 12px);
+    gap:4px;
+    padding:7px 7px;
+    border-radius:14px;
+  }
+  .lab-stage b{width:18px;height:18px;font-size:7px}
+  .lab-stage span{font-size:6.8px}
+  .lab-stage-rail>i{min-width:6px}
+
+  .lab-object-tag{
+    min-width:82px;
+    padding:5px 7px;
+  }
+  .lab-object-tag strong{font-size:9px}
+  .lab-object-tag span{font-size:6.8px}
+
+  html[data-experience="lab"] #experimentPanel{
+    max-height:42dvh;
+  }
+  html[data-experience="lab"] .hint{
+    top:calc(env(safe-area-inset-top) + 100px);
+    max-width:80vw;
+  }
+}
+
+@media(max-width:390px){
+  .lab-stage span{display:none}
+  .lab-stage-rail{
+    width:min(76vw,290px);
+    grid-template-columns:auto 1fr auto 1fr auto 1fr auto;
+  }
+}
