@@ -1730,6 +1730,11 @@ function placeBlackHole() {
 
 function moveBlackHole() {
   arStoryRunning = false;
+  clearTimeout(arStoryTextTimer);
+  arScaleCurrent = 1.0;
+  arScaleTarget = 1.0;
+  arLensingStrength = 0.0;
+  arDiskAlpha = 0.0;
   removeFormationStar();
   $('#arStory')?.classList.remove('active');
   clearGravityLab();
@@ -2447,7 +2452,6 @@ async function startXR(session) {
   xrHitSource = await xrSession.requestHitTestSource({ space: viewer });
   xrSession.addEventListener('select', () => {
     if (moving) placeBlackHole();
-    else pulseGravity();
   });
   xrSession.addEventListener('end', () => location.reload());
   renderer.setAnimationLoop(renderXR);
