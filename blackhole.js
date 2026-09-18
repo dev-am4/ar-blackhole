@@ -48,13 +48,7 @@ const prefersDesktopSimulator = () =>
   !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const modeHint = $('#modeHint');
-if (modeHint) {
-  modeHint.textContent = IS_IOS
-    ? 'บน iPhone/iPad ระบบจะใช้ 3D Simulator เพื่อความลื่นไหลและเสถียร'
-    : MOBILE_DEVICE
-      ? 'ระบบจะใช้ AR เมื่ออุปกรณ์รองรับ และสลับเป็น 3D อัตโนมัติเมื่อไม่รองรับ'
-      : 'ระบบจะเลือกโหมด 3D ให้เหมาะกับอุปกรณ์ของคุณ';
-}
+if (modeHint) modeHint.textContent = 'เลือกวิธีสำรวจหลุมดำ';
 
 let cinematicLoadPromise = null;
 function ensureCinematicLayer() {
@@ -1632,6 +1626,8 @@ function startSimulatorMode() {
   intro.style.display = 'none';
   arUI.classList.add('on');
   if (feed) feed.style.display = 'none';
+  stream?.getTracks?.().forEach((t) => t.stop());
+  stream = null;
   if (simulatorStars) simulatorStars.visible = true;
 
   // Reset orbit camera to a portrait-safe frame.
@@ -1692,8 +1688,8 @@ async function startXR(session) {
   });
   xrSession.addEventListener('end', () => location.reload());
   renderer.setAnimationLoop(renderXR);
-  setStatus('WebXR พร้อมใช้งาน', false);
-  if (hint) hint.textContent = 'เล็งกล้องลงพื้นที่โล่ง แล้วขยับช้า ๆ';
+  setStatus('AR · พื้นจริง', true);
+  if (hint) hint.textContent = 'เล็งกล้องลงพื้นที่โล่ง แล้วขยับช้า ๆ เพื่อหาพื้น';
 }
 
 // -----------------------------------------------------------------------------
@@ -2373,36 +2369,41 @@ function updateGravityLab(dt, activeCamera) {
   }
 }
 
-async function startFallback(orientationGranted) {
+async function startFallback() {
   mode = 'fallback';
   preparePlacementState({ simulator:false });
+
+  if (simulatorStars) simulatorStars.visible = false;
+
   stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: 1280 },
+      height: { ideal: 720 }
+    },
     audio: false
   });
+
   feed.srcObject = stream;
   feed.style.display = 'block';
   await feed.play().catch(() => {});
 
-  gyro.live = orientationGranted === 'granted';
-  if (gyro.live) {
-    window.addEventListener('deviceorientation', (e) => {
-      if (e.alpha == null) return;
-      gyro.alpha = THREE.MathUtils.degToRad(e.alpha);
-      gyro.beta = THREE.MathUtils.degToRad(e.beta);
-      gyro.gamma = THREE.MathUtils.degToRad(e.gamma);
-      gyro.orient = THREE.MathUtils.degToRad(screen.orientation?.angle || window.orientation || 0);
-    }, true);
-  } else {
-    camera.rotation.set(-0.48, 0, 0);
-  }
+  // Camera AR fallback intentionally avoids gyro tracking.
+  // The rear-camera image is real; the black hole stays visually stable
+  // in screen space instead of wobbling from noisy mobile sensors.
+  gyro.live = false;
+  camera.position.set(0, EYE_HEIGHT, 0);
+  camera.rotation.set(-0.48, 0, 0);
+  camera.fov = 62;
+  camera.updateProjectionMatrix();
 
   renderer.setAnimationLoop(renderFallback);
-  setStatus(gyro.live ? 'กล้อง + ไจโรพร้อม' : 'กล้องพร้อม', false);
+  setStatus('AR · กล้องจริง', true);
+
   if (hint) {
-    hint.textContent = gyro.live
-      ? 'เล็งกล้องลงพื้นที่โล่ง แล้วขยับช้า ๆ'
-      : 'เล็งกล้องลงพื้น · เครื่องนี้ไม่อนุญาตเซ็นเซอร์หมุน';
+    hint.style.transition = 'none';
+    hint.style.opacity = '1';
+    hint.textContent = 'เล็งตำแหน่งกลางภาพ แล้วแตะ “วางหลุมดำ”';
   }
 }
 
@@ -2412,57 +2413,54 @@ async function launch() {
   audio = initAudio();
   ensureCinematicLayer();
 
-  const desktopSimulator = prefersDesktopSimulator();
-  const preferStableSimulator = desktopSimulator || (IS_IOS && !FORCE_CAMERA_FALLBACK);
-  const orientationPromise = preferStableSimulator ? Promise.resolve('denied') : requestOrientation();
-  const xrSessionPromise = preferStableSimulator ? Promise.resolve(null) : requestXRSession();
+  const launchLabel = startBtn?.querySelector('i');
+  if (startBtn) startBtn.disabled = true;
+  if (launchLabel) launchLabel.textContent = 'กำลังเปิดกล้อง...';
 
-  startBtn.disabled = true;
-  startBtn.textContent = preferStableSimulator ? 'กำลังเปิด 3D Simulator...' : 'กำลังตรวจสอบ AR...';
-
-  // Trigger Warp Effect
   mode = 'warp';
   intro.style.opacity = '0';
-  intro.style.transition = 'opacity 0.8s ease';
-  
-  // Create a cinematic flash
+  intro.style.transition = 'opacity 0.55s ease';
+
   const flash = document.createElement('div');
   flash.className = 'flash-overlay active';
   document.body.appendChild(flash);
-  
-  setTimeout(() => flash.classList.remove('active'), 800);
+  setTimeout(() => flash.classList.remove('active'), 550);
 
   setTimeout(async () => {
     try {
       intro.style.display = 'none';
       arUI.classList.add('on');
-      setStatus('กำลังตรวจ AR', false);
 
-      // Reset camera from warp
       camera.fov = 62;
       camera.updateProjectionMatrix();
 
-      if (preferStableSimulator) {
-        startSimulatorMode();
-        return;
-      }
+      // AR choice always remains an AR/camera experience.
+      // Prefer WebXR hit-test when supported; otherwise use the real rear
+      // camera as background with a stable camera-AR placement layer.
+      setStatus('กำลังเปิด AR', false);
+      const session = await requestXRSession();
 
-      const session = await xrSessionPromise;
       if (session) {
+        if (feed) feed.style.display = 'none';
         await startXR(session);
-      } else if (FORCE_CAMERA_FALLBACK && navigator.mediaDevices?.getUserMedia) {
-        const orientation = await orientationPromise;
-        await startFallback(orientation);
+      } else if (navigator.mediaDevices?.getUserMedia) {
+        await startFallback();
       } else {
-        // Unsupported mobile browsers get the stable 3D experience instead
-        // of the camera+gyro pseudo-AR fallback.
-        startSimulatorMode();
+        throw new Error('Rear camera is not available in this browser');
       }
     } catch (e) {
-      console.warn('[AR Black Hole] Camera/XR fallback to Simulator:', e);
-      startSimulatorMode();
+      console.warn('[AR Black Hole] Camera mode failed:', e);
+      stream?.getTracks?.().forEach((t) => t.stop());
+      if (feed) feed.style.display = 'none';
+      showError(
+        'เปิดกล้องจริงไม่สำเร็จ',
+        'โปรดอนุญาตสิทธิ์กล้องหลัง หรือเลือก “แบบจำลอง 3D” เพื่อใช้งานโดยไม่ใช้กล้อง',
+        true
+      );
+    } finally {
+      launching = false;
     }
-  }, 1000); // 1 second warp delay
+  }, 650);
 }
 
 function updateHud(activeCamera) {
@@ -2489,7 +2487,11 @@ function setupInteractiveUI() {
     simIntroBtn.addEventListener('click', () => {
       audio = initAudio();
       ensureCinematicLayer();
-      
+
+      const simLabel = simIntroBtn.querySelector('i');
+      simIntroBtn.disabled = true;
+      if (simLabel) simLabel.textContent = 'กำลังเปิดแบบจำลอง...';
+
       mode = 'warp';
       intro.style.opacity = '0';
       intro.style.transition = 'opacity 0.8s ease';
