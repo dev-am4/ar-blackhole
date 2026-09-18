@@ -1,3 +1,4 @@
+const CINEMATIC_ENABLED = new URLSearchParams(location.search).get('cinematic') === '1';
 const ASSET = '/blackhole_24s.webp?v=7';
 const SIZE = 256;
 const FRAME_MS = 125;
@@ -83,6 +84,7 @@ function stopTicker(){
 }
 
 function build(){
+  if(!CINEMATIC_ENABLED) return;
   const holder=document.createElement('div');
   holder.id='cinematicBlackHoleWrap';
   holder.setAttribute('aria-hidden','true');
@@ -129,6 +131,7 @@ function build(){
 }
 
 function restart(){
+  if(!CINEMATIC_ENABLED) return;
   active=true;
   if(!wrap) build();
   if(ready){
