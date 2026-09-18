@@ -1462,3 +1462,43 @@ html[data-experience="lab"] .experiment-intro::before{
     width:min(620px,94vw);
   }
 }
+
+
+/* ==========================================================================
+   V3.6 · Continuous AR evolution + pinch scale
+   ========================================================================== */
+.ar-story > span,
+.ar-story > strong,
+.ar-story > p{
+  transition:
+    opacity .18s ease,
+    transform .22s cubic-bezier(.2,.75,.25,1),
+    filter .18s ease;
+  will-change:opacity,transform;
+}
+.ar-story.changing > span,
+.ar-story.changing > strong,
+.ar-story.changing > p{
+  opacity:.12;
+  transform:translateY(3px);
+  filter:blur(1.2px);
+}
+
+/* The real-camera scene owns the gesture surface. */
+html[data-experience="ar"] canvas.gl{
+  touch-action:none;
+}
+
+/* Keep instructional UI quiet while the continuous sequence is playing. */
+html[data-experience="ar"] .ar-story{
+  transition:
+    opacity .28s ease,
+    transform .32s cubic-bezier(.2,.75,.25,1),
+    background .3s ease;
+}
+
+@media(max-width:700px){
+  html[data-experience="ar"] .ar-story{
+    background:linear-gradient(145deg,rgba(2,5,12,.82),rgba(9,9,22,.76));
+  }
+}
