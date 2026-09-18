@@ -7,7 +7,7 @@
   <meta name="description" content="Black Hole AR สื่อเสริมการเรียนรู้ Zone 2 · Big Bang Dome ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์">
   <title>Black Hole Experience · Zone 2 Big Bang Dome · นครสวรรค์</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="/blackhole.css?v=20260918-v3reset">
+  <link rel="stylesheet" href="/blackhole.css?v=20260918-lab31">
   <link rel="stylesheet" href="/wow.css?v=20260918-fix1">
 </head>
 <body>
@@ -59,6 +59,21 @@
     </div>
 
     <div id="experienceBadge" class="experience-badge" aria-live="polite">AR VIEW</div>
+
+    <div id="labStageRail" class="lab-stage-rail interactive-ui" aria-hidden="true">
+      <div class="lab-stage active" data-lab-phase="far"><b>1</b><span>เริ่มต้น</span></div>
+      <i></i>
+      <div class="lab-stage" data-lab-phase="gravity"><b>2</b><span>วิถีเปลี่ยน</span></div>
+      <i></i>
+      <div class="lab-stage" data-lab-phase="tidal"><b>3</b><span>แรงไทดัล</span></div>
+      <i></i>
+      <div class="lab-stage" data-lab-phase="horizon"><b>4</b><span>Event Horizon</span></div>
+    </div>
+
+    <div id="labObjectTag" class="lab-object-tag" aria-hidden="true">
+      <strong id="labObjectTagName">โลก</strong>
+      <span id="labObjectTagPhase">กำลังเริ่มการทดลอง</span>
+    </div>
 
     <section id="arStory" class="ar-story" aria-live="polite" aria-hidden="true">
       <span id="arStoryStep">01 · STELLAR COLLAPSE</span>
@@ -290,7 +305,7 @@
   </section>
 
   <script type="module" src="/anchor-hook.js?v=20260918-fix1"></script>
-  <script type="module" src="/blackhole.js?v=20260918-v3reset"></script>
+  <script type="module" src="/blackhole.js?v=20260918-lab31"></script>
   <script type="module" src="/wow-layer.js?v=20260918-fix1"></script>
 </body>
 </html>
