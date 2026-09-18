@@ -105,6 +105,8 @@ let placed = false;
 let reticleReady = false;
 let launching = false;
 let baseScale = 1.0;
+const AR_WORLD_SCALE = MOBILE_DEVICE ? 0.34 : 0.40;
+const AR_FINAL_BRIGHTNESS = 0.48;
 let userMass = 1.0;
 let userSpin = 0.85;
 let userBrightness = 1.0;
@@ -783,7 +785,9 @@ function createRelativisticRaymarchedBlackHole() {
               float beta = v_orbit;
               float gamma = 1.0 / sqrt(max(0.001, 1.0 - beta * beta));
               float doppler = 1.0 / (gamma * (1.0 - beta * cosTheta));
-              float dopplerBoost = pow(clamp(doppler, 0.15, 4.2), 3.5);
+              float maxDoppler = mix(1.85,4.2,uIsSimulator);
+              float dopplerPower = mix(2.0,3.5,uIsSimulator);
+              float dopplerBoost = pow(clamp(doppler,0.20,maxDoppler),dopplerPower);
 
               float gravRedshift = sqrt(max(0.01, 1.0 - rs / rD));
 
@@ -796,12 +800,14 @@ function createRelativisticRaymarchedBlackHole() {
               vec3 col = getBlackbodyColor(tempNorm, doppler);
 
               // Ultra-bright Inner Caustic
-              float iscoGlow = exp(-pow((rD - r_isco) / 0.055, 2.0)) * 3.2;
-              col += vec3(1.0, 0.98, 0.92) * iscoGlow * dopplerBoost;
+              float iscoStrength = mix(0.85,3.2,uIsSimulator);
+              float iscoGlow = exp(-pow((rD - r_isco) / 0.055, 2.0)) * iscoStrength;
+              col += vec3(1.0, 0.93, 0.78) * iscoGlow * dopplerBoost;
 
               float dTau = density * (0.90 + uGravity * 0.6) * uBrightness * dt * 15.0;
               float stepTrans = exp(-dTau);
-              vec3 emission = col * dopplerBoost * (1.0 - stepTrans);
+              float arEmission = mix(0.42,1.0,uIsSimulator);
+              vec3 emission = col * dopplerBoost * (1.0 - stepTrans) * arEmission;
 
               colAcc += emission * transmittance;
               transmittance *= stepTrans;
@@ -815,7 +821,8 @@ function createRelativisticRaymarchedBlackHole() {
           if (dist > rh * 1.62 && dist < rh * 2.20) {
             float rPh = rh * 1.82;
             float ringWidth = 0.030 * max(uMass, 0.55);
-            float phCaustic = exp(-pow((dist - rPh) / ringWidth, 2.0)) * 0.52 * uBrightness;
+            float ringStrength = mix(0.24,0.52,uIsSimulator);
+            float phCaustic = exp(-pow((dist - rPh) / ringWidth, 2.0)) * ringStrength * uBrightness;
             vec3 phCol = vec3(1.0, 0.94, 0.85) * phCaustic;
             colAcc += phCol * transmittance;
           }
@@ -840,8 +847,16 @@ function createRelativisticRaymarchedBlackHole() {
             vec3 finalCol = colAcc + lensedStarfield * transmittance;
             gl_FragColor = vec4(finalCol, 1.0);
           } else {
-            vec3 finalCol = colAcc + lensedStarfield * transmittance * 0.20;
-            float alpha = clamp(length(colAcc) * 1.3 + (1.0 - transmittance) * edgeFade, 0.0, 1.0);
+            // Camera AR must preserve the real environment. Do not paint a
+            // synthetic cosmic background over the phone camera.
+            vec3 finalCol = colAcc + lensedStarfield * transmittance * 0.008;
+            finalCol = finalCol / (vec3(1.0) + finalCol * 0.72);
+            finalCol *= 0.84;
+            float alpha = clamp(
+              length(finalCol) * 0.86 + (1.0 - transmittance) * edgeFade * 0.74,
+              0.0,
+              0.90
+            );
             gl_FragColor = vec4(finalCol, alpha);
           }
         }
@@ -1257,21 +1272,105 @@ function buildCosmicSpace() {
 // -----------------------------------------------------------------------------
 function makeFormationStar() {
   const group = new THREE.Group();
+
+  const starMat = new THREE.ShaderMaterial({
+    transparent:false,
+    depthWrite:true,
+    uniforms:{ uTime:{ value:0 } },
+    vertexShader:`
+      varying vec3 vWorldNormal;
+      varying vec3 vWorldPos;
+      varying vec3 vObjPos;
+      void main(){
+        vObjPos = position;
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        vec4 wp = modelMatrix * vec4(position,1.0);
+        vWorldPos = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader:`
+      precision mediump float;
+      uniform float uTime;
+      varying vec3 vWorldNormal;
+      varying vec3 vWorldPos;
+      varying vec3 vObjPos;
+
+      float hash31(vec3 p){
+        p = fract(p * 0.1031);
+        p += dot(p,p.yzx + 33.33);
+        return fract((p.x+p.y)*p.z);
+      }
+
+      void main(){
+        vec3 N = normalize(vWorldNormal);
+        vec3 V = normalize(cameraPosition - vWorldPos);
+        float facing = clamp(dot(N,V),0.0,1.0);
+        float limb = smoothstep(0.03,0.92,facing);
+
+        float gran = hash31(floor((N + 1.0) * 28.0 + uTime * 0.35));
+        float waves = sin(N.x*19.0 + uTime*1.7)
+                    * sin(N.y*23.0 - uTime*1.2)
+                    * sin(N.z*17.0 + uTime*.9);
+        float texture = clamp(.72 + gran*.20 + waves*.10,0.50,1.12);
+
+        vec3 edge = vec3(1.00,0.24,0.035);
+        vec3 mid  = vec3(1.00,0.55,0.09);
+        vec3 hot  = vec3(1.00,0.93,0.55);
+        vec3 col = mix(edge,mid,limb);
+        col = mix(col,hot,pow(limb,1.8));
+        col *= texture;
+        gl_FragColor = vec4(col,1.0);
+      }
+    `
+  });
+
   const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.34, MOBILE_DEVICE ? 24 : 36, MOBILE_DEVICE ? 18 : 28),
-    new THREE.MeshBasicMaterial({ color:0xffe6b0 })
+    new THREE.SphereGeometry(0.34, MOBILE_DEVICE ? 28 : 40, MOBILE_DEVICE ? 20 : 30),
+    starMat
   );
+
+  const haloMat = new THREE.ShaderMaterial({
+    transparent:true,
+    depthWrite:false,
+    blending:THREE.AdditiveBlending,
+    side:THREE.DoubleSide,
+    uniforms:{ uTime:{ value:0 } },
+    vertexShader:`
+      varying vec3 vWorldNormal;
+      varying vec3 vWorldPos;
+      void main(){
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        vec4 wp = modelMatrix * vec4(position,1.0);
+        vWorldPos = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader:`
+      precision mediump float;
+      uniform float uTime;
+      varying vec3 vWorldNormal;
+      varying vec3 vWorldPos;
+      void main(){
+        vec3 N=normalize(vWorldNormal);
+        vec3 V=normalize(cameraPosition-vWorldPos);
+        float facing=abs(dot(N,V));
+        float rim=pow(1.0-clamp(facing,0.0,1.0),2.7);
+        float pulse=.82 + .18*sin(uTime*2.1);
+        float alpha=rim*.22*pulse;
+        gl_FragColor=vec4(vec3(1.0,.28,.055)*1.15,alpha);
+      }
+    `
+  });
+
   const halo = new THREE.Mesh(
-    new THREE.SphereGeometry(0.48, MOBILE_DEVICE ? 20 : 32, MOBILE_DEVICE ? 14 : 22),
-    new THREE.MeshBasicMaterial({
-      color:0xff9b4a,
-      transparent:true,
-      opacity:.18,
-      blending:THREE.AdditiveBlending,
-      depthWrite:false
-    })
+    new THREE.SphereGeometry(0.47, MOBILE_DEVICE ? 24 : 36, MOBILE_DEVICE ? 18 : 26),
+    haloMat
   );
+
   group.add(core,halo);
+  group.userData.starMat=starMat;
+  group.userData.haloMat=haloMat;
   return group;
 }
 
@@ -1342,16 +1441,16 @@ function startARStory() {
 
   formationStar = makeFormationStar();
   formationStar.position.copy(blackHole.position);
-  formationStar.position.y += .78 * baseScale;
-  formationStar.scale.setScalar(baseScale);
+  formationStar.position.y += .78 * AR_WORLD_SCALE;
+  formationStar.scale.setScalar(AR_WORLD_SCALE);
   scene.add(formationStar);
 
   blackHole.visible = false;
-  blackHole.scale.setScalar(baseScale * userMass * .3);
+  blackHole.scale.setScalar(AR_WORLD_SCALE * userMass * .18);
   if (blackHole.userData.particles) blackHole.userData.particles.visible = false;
   if (blackHole.userData.jets) blackHole.userData.jets.visible = false;
 
-  userBrightness = .12;
+  userBrightness = .06;
   enableLensingWarp = false;
   jetEnabled = false;
 
@@ -1372,11 +1471,11 @@ function finishARStory() {
   removeFormationStar();
 
   blackHole.visible = true;
-  blackHole.scale.setScalar(baseScale * userMass);
+  blackHole.scale.setScalar(AR_WORLD_SCALE * userMass);
   if (blackHole.userData.particles) blackHole.userData.particles.visible = true;
   if (blackHole.userData.jets) blackHole.userData.jets.visible = false;
 
-  userBrightness = 1.0;
+  userBrightness = AR_FINAL_BRIGHTNESS;
   enableLensingWarp = true;
 
   const panel = $('#arStory');
@@ -1416,17 +1515,24 @@ function updateARStory(now) {
 
   if (formationStar) {
     const collapse = THREE.MathUtils.clamp((t - 4) / 3,0,1);
-    const pulse = 1 + Math.sin(t * 5) * .035 * (1-collapse);
-    formationStar.scale.setScalar(baseScale * THREE.MathUtils.lerp(pulse,.06,collapse));
-    formationStar.rotation.y += .008;
+    const pulse = 1 + Math.sin(t * 4.2) * .018 * (1-collapse);
+    formationStar.scale.setScalar(
+      AR_WORLD_SCALE * THREE.MathUtils.lerp(pulse,.08,collapse)
+    );
+    formationStar.rotation.y += .003;
+    if (formationStar.userData.starMat) formationStar.userData.starMat.uniforms.uTime.value = t;
+    if (formationStar.userData.haloMat) formationStar.userData.haloMat.uniforms.uTime.value = t;
     formationStar.visible = t < 7.1;
   }
 
   if (t >= 6.2) {
     blackHole.visible = true;
-    const reveal = THREE.MathUtils.smoothstep(t,6.2,9.5);
-    blackHole.scale.setScalar(baseScale * userMass * THREE.MathUtils.lerp(.22,1,reveal));
-    userBrightness = THREE.MathUtils.lerp(.08, t >= 11 ? 1.0 : .24, THREE.MathUtils.clamp((t-7)/5,0,1));
+    const reveal = THREE.MathUtils.smoothstep(t,6.2,10.0);
+    blackHole.scale.setScalar(
+      AR_WORLD_SCALE * userMass * THREE.MathUtils.lerp(.16,1.0,reveal)
+    );
+    const brightProgress = THREE.MathUtils.clamp((t - 7.0) / 9.0,0,1);
+    userBrightness = THREE.MathUtils.lerp(.055,AR_FINAL_BRIGHTNESS,brightProgress);
   }
 
   if (t >= 11 && blackHole.userData.particles) blackHole.userData.particles.visible = true;
@@ -1541,7 +1647,8 @@ function placeBlackHole() {
     } else {
       blackHole.position.copy(reticle.position);
     }
-    blackHole.scale.setScalar(baseScale * userMass);
+    const placementScale = visitorExperience === 'ar' ? AR_WORLD_SCALE : baseScale;
+    blackHole.scale.setScalar(placementScale * userMass);
     blackHole.visible = true;
     reticle.visible = false;
     moving = false;
