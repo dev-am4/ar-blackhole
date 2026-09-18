@@ -161,6 +161,34 @@ const simOrbit = {
   target: new THREE.Vector3(0, 0.78, 0)
 };
 
+const labOrbit = {
+  theta: 0.18,
+  phi: 1.34,
+  radius: 6.25,
+  target: new THREE.Vector3(0, 0.48, 0)
+};
+let labCameraLastFrame = performance.now();
+
+function defaultLabRadius() {
+  return (innerHeight > innerWidth && innerWidth <= 700) ? 7.5 : 6.25;
+}
+
+function resetLabCamera(immediate = false) {
+  labOrbit.theta = 0.18;
+  labOrbit.phi = 1.34;
+  labOrbit.radius = defaultLabRadius();
+  labOrbit.target.set(0, 0.48, 0);
+
+  if (immediate) {
+    simOrbit.theta = labOrbit.theta;
+    simOrbit.phi = labOrbit.phi;
+    simOrbit.radius = labOrbit.radius;
+    simOrbit.target.copy(labOrbit.target);
+  }
+
+  labCameraLastFrame = performance.now();
+}
+
 const gyro = { alpha: 0, beta: 0, gamma: 0, orient: 0, live: false };
 const EYE_HEIGHT = 1.55;
 const raycaster = new THREE.Raycaster();
@@ -1226,6 +1254,7 @@ function updateARStory(now) {
 function showLabExperience() {
   setVisitorExperience('lab');
   cameraCinematicMode = 'manual';
+  resetLabCamera(true);
   const rail = $('#labStageRail');
   rail?.classList.add('active');
   rail?.setAttribute('aria-hidden','false');
@@ -1247,7 +1276,7 @@ function showLabExperience() {
   if (hint) {
     hint.style.transition = 'none';
     hint.style.opacity = '1';
-    hint.textContent = 'เลือกวัตถุด้านล่างเพื่อเริ่มการทดลอง';
+    hint.textContent = 'เลือกวัตถุ · ลากเพื่อหมุน · หนีบสองนิ้วเพื่อซูม';
   }
   setStatus('BLACK HOLE LAB', true);
 }
@@ -1639,11 +1668,16 @@ function setCinematicView(viewName) {
 
 function renderSimulator(now) {
   if (visitorExperience === 'lab') {
-    // Exhibition lab uses a fixed, readable composition.
-    simOrbit.theta = 0.18;
-    simOrbit.phi = 1.34;
-    simOrbit.radius = (innerHeight > innerWidth && innerWidth <= 700) ? 7.5 : 6.25;
-    simOrbit.target.set(0, 0.48, 0);
+    // Smooth user-controlled orbit: the lab starts from a curated view,
+    // then the visitor can rotate and zoom without interrupting the experiment.
+    const camDt = Math.min(0.05, Math.max(0.001, (now - labCameraLastFrame) / 1000 || 0.016));
+    labCameraLastFrame = now;
+    const ease = 1 - Math.exp(-10.5 * camDt);
+
+    simOrbit.theta += (labOrbit.theta - simOrbit.theta) * ease;
+    simOrbit.phi += (labOrbit.phi - simOrbit.phi) * ease;
+    simOrbit.radius += (labOrbit.radius - simOrbit.radius) * ease;
+    simOrbit.target.lerp(labOrbit.target, ease);
   } else if (cameraCinematicMode === 'orbit') {
     simOrbit.theta += 0.0032;
     simOrbit.phi = 1.25 + Math.sin(now * 0.0006) * 0.15;
@@ -1714,72 +1748,161 @@ function startIntroMode() {
 // Interactive 3D Simulator (Orbit, Zoom & Inspect)
 // -----------------------------------------------------------------------------
 function setupSimulatorControls() {
-  const onPointerDown = (e) => {
-    if (mode !== 'simulator' || visitorExperience === 'lab' || e.target.closest('button, .interactive-ui, .topbar, .earth-timeline, .cinema-bar, .dock')) return;
-    simOrbit.isDragging = true;
-    simOrbit.previousMousePosition = { x: e.clientX || e.touches?.[0]?.clientX || 0, y: e.clientY || e.touches?.[0]?.clientY || 0 };
+  let touchPinchDist = 0;
+  let touchMode = 'none'; // none | rotate | pinch
+
+  const isBlockedTarget = (target) =>
+    target?.closest?.('button, .interactive-ui, .topbar, .earth-timeline, .cinema-bar, .dock');
+
+  const markManual = () => {
     cameraCinematicMode = 'manual';
-    document.querySelectorAll('.cinema-pill').forEach(p => p.classList.toggle('active', p.dataset.view === 'manual'));
+    document.querySelectorAll('.cinema-pill').forEach((p) => {
+      p.classList.toggle('active', p.dataset.view === 'manual');
+    });
   };
 
-  const onPointerMove = (e) => {
+  const rotateBy = (deltaX, deltaY) => {
+    if (visitorExperience === 'lab') {
+      labOrbit.theta -= deltaX * 0.0065;
+      labOrbit.phi = THREE.MathUtils.clamp(
+        labOrbit.phi - deltaY * 0.0065,
+        0.28,
+        Math.PI - 0.28
+      );
+      // Keep theta numerically stable after long exhibit sessions.
+      if (Math.abs(labOrbit.theta) > Math.PI * 8) {
+        labOrbit.theta %= Math.PI * 2;
+        simOrbit.theta %= Math.PI * 2;
+      }
+    } else {
+      simOrbit.theta -= deltaX * 0.007;
+      simOrbit.phi = THREE.MathUtils.clamp(
+        simOrbit.phi - deltaY * 0.007,
+        0.15,
+        Math.PI - 0.15
+      );
+    }
+    markManual();
+  };
+
+  const zoomBy = (delta) => {
+    if (visitorExperience === 'lab') {
+      labOrbit.radius = THREE.MathUtils.clamp(
+        labOrbit.radius + delta,
+        MOBILE_DEVICE ? 3.7 : 3.2,
+        10.5
+      );
+    } else {
+      simOrbit.radius = THREE.MathUtils.clamp(simOrbit.radius + delta, 2.0, 9.5);
+    }
+    markManual();
+  };
+
+  // Desktop mouse.
+  const onMouseDown = (e) => {
+    if (mode !== 'simulator' || isBlockedTarget(e.target)) return;
+    simOrbit.isDragging = true;
+    simOrbit.previousMousePosition = { x:e.clientX, y:e.clientY };
+    markManual();
+  };
+
+  const onMouseMove = (e) => {
     if (!simOrbit.isDragging || mode !== 'simulator') return;
-    const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
-    const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
-    const deltaX = clientX - simOrbit.previousMousePosition.x;
-    const deltaY = clientY - simOrbit.previousMousePosition.y;
-
-    simOrbit.theta -= deltaX * 0.007;
-    simOrbit.phi = THREE.MathUtils.clamp(simOrbit.phi - deltaY * 0.007, 0.15, Math.PI - 0.15);
-
-    simOrbit.previousMousePosition = { x: clientX, y: clientY };
+    const dx = e.clientX - simOrbit.previousMousePosition.x;
+    const dy = e.clientY - simOrbit.previousMousePosition.y;
+    rotateBy(dx,dy);
+    simOrbit.previousMousePosition = { x:e.clientX, y:e.clientY };
   };
 
-  const onPointerUp = () => { simOrbit.isDragging = false; };
+  const onMouseUp = () => {
+    simOrbit.isDragging = false;
+  };
 
   const onWheel = (e) => {
-    if (mode !== 'simulator' || visitorExperience === 'lab') return;
-    simOrbit.radius = THREE.MathUtils.clamp(simOrbit.radius + e.deltaY * 0.0035, 2.0, 9.5);
-    cameraCinematicMode = 'manual';
-    document.querySelectorAll('.cinema-pill').forEach(p => p.classList.toggle('active', p.dataset.view === 'manual'));
+    if (mode !== 'simulator' || isBlockedTarget(e.target)) return;
+    zoomBy(e.deltaY * (visitorExperience === 'lab' ? 0.0042 : 0.0035));
   };
 
-  // Two-finger pinch zoom on mobile
-  let touchPinchDist = 0;
-  window.addEventListener('touchstart', (e) => {
-    if (mode === 'simulator' && visitorExperience !== 'lab' && e.touches.length === 2) {
+  // Mobile: one finger rotates; two fingers pinch-zoom.
+  const onTouchStart = (e) => {
+    if (mode !== 'simulator' || isBlockedTarget(e.target)) return;
+
+    if (e.touches.length >= 2) {
+      touchMode = 'pinch';
+      simOrbit.isDragging = false;
       touchPinchDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      cameraCinematicMode = 'manual';
-      document.querySelectorAll('.cinema-pill').forEach(p => p.classList.toggle('active', p.dataset.view === 'manual'));
+      markManual();
+      return;
     }
-  }, { passive: true });
 
-  window.addEventListener('touchmove', (e) => {
-    if (mode === 'simulator' && visitorExperience !== 'lab' && e.touches.length === 2 && touchPinchDist > 0) {
+    if (e.touches.length === 1) {
+      touchMode = 'rotate';
+      simOrbit.isDragging = true;
+      simOrbit.previousMousePosition = {
+        x:e.touches[0].clientX,
+        y:e.touches[0].clientY
+      };
+      markManual();
+    }
+  };
+
+  const onTouchMove = (e) => {
+    if (mode !== 'simulator' || isBlockedTarget(e.target)) return;
+
+    if (e.touches.length >= 2) {
       const d = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      const diff = touchPinchDist - d;
-      simOrbit.radius = THREE.MathUtils.clamp(simOrbit.radius + diff * 0.008, 2.0, 9.5);
+      if (touchPinchDist > 0) {
+        const diff = touchPinchDist - d;
+        zoomBy(diff * 0.010);
+      }
       touchPinchDist = d;
+      touchMode = 'pinch';
+      simOrbit.isDragging = false;
+      return;
     }
-  }, { passive: true });
 
-  window.addEventListener('touchend', (e) => {
-    if (e.touches.length < 2) touchPinchDist = 0;
-  }, { passive: true });
+    if (e.touches.length === 1 && touchMode !== 'pinch') {
+      const x=e.touches[0].clientX;
+      const y=e.touches[0].clientY;
+      const dx=x-simOrbit.previousMousePosition.x;
+      const dy=y-simOrbit.previousMousePosition.y;
+      rotateBy(dx,dy);
+      simOrbit.previousMousePosition={x,y};
+      touchMode='rotate';
+    }
+  };
 
-  window.addEventListener('mousedown', onPointerDown);
-  window.addEventListener('mousemove', onPointerMove);
-  window.addEventListener('mouseup', onPointerUp);
-  window.addEventListener('touchstart', onPointerDown, { passive: true });
-  window.addEventListener('touchmove', onPointerMove, { passive: true });
-  window.addEventListener('touchend', onPointerUp, { passive: true });
-  window.addEventListener('wheel', onWheel, { passive: true });
+  const onTouchEnd = (e) => {
+    if (e.touches.length === 0) {
+      touchMode='none';
+      touchPinchDist=0;
+      simOrbit.isDragging=false;
+    } else if (e.touches.length === 1) {
+      touchMode='rotate';
+      touchPinchDist=0;
+      simOrbit.isDragging=true;
+      simOrbit.previousMousePosition={
+        x:e.touches[0].clientX,
+        y:e.touches[0].clientY
+      };
+    }
+  };
+
+  window.addEventListener('mousedown',onMouseDown);
+  window.addEventListener('mousemove',onMouseMove);
+  window.addEventListener('mouseup',onMouseUp);
+  window.addEventListener('wheel',onWheel,{ passive:true });
+
+  window.addEventListener('touchstart',onTouchStart,{ passive:true });
+  window.addEventListener('touchmove',onTouchMove,{ passive:true });
+  window.addEventListener('touchend',onTouchEnd,{ passive:true });
+  window.addEventListener('touchcancel',onTouchEnd,{ passive:true });
 }
 
 function updateSimulatorCamera() {
@@ -2933,6 +3056,16 @@ function setupInteractiveUI() {
   });
 
   clearExperimentBtn?.addEventListener('click', clearGravityLab);
+  $('#resetLabViewBtn')?.addEventListener('click', () => {
+    resetLabCamera(false);
+    if (hint) {
+      hint.style.opacity = '1';
+      hint.textContent = 'ลากเพื่อหมุน · หนีบสองนิ้วเพื่อซูม';
+      setTimeout(() => {
+        if (visitorExperience === 'lab' && hint) hint.style.opacity = '.72';
+      }, 1800);
+    }
+  });
 
   document.querySelectorAll('.experiment-object').forEach((button) => {
     button.addEventListener('click', () => launchGravityLab(button.dataset.object));
