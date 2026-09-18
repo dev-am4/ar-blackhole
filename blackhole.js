@@ -118,6 +118,11 @@ let formationStar = null;
 let arStoryStart = 0;
 let arStoryRunning = false;
 let arStoryStage = -1;
+let arStoryTextTimer = 0;
+let arScaleCurrent = 1.0;
+let arScaleTarget = 1.0;
+let arLensingStrength = 0.0;
+let arDiskAlpha = 0.0;
 
 function setVisitorExperience(name) {
   visitorExperience = name;
@@ -749,7 +754,7 @@ function createRelativisticRaymarchedBlackHole() {
           float baseDt = clamp((dist - rh * 0.94) * 0.115, 0.014, 0.11);
           float dt = inDiskZone ? min(baseDt, 0.026) : baseDt;
 
-          if (uEnableLensing > 0.5) {
+          if (uEnableLensing > 0.001) {
             vec3 h = cross(r, v);
             float h2 = dot(h, h);
             // Geodesic deflection (GR light bending)
@@ -758,7 +763,8 @@ function createRelativisticRaymarchedBlackHole() {
             // Kerr spin frame dragging (Lense-Thirring effect)
             vec3 spinAxis = invTilt * vec3(0.0, 1.0, 0.0);
             a += 0.75 * uSpin * rs * cross(v, spinAxis) / (dist * dist * dist + 0.00001);
-            
+            a *= uEnableLensing;
+
             v = normalize(v + a * dt);
           }
 
@@ -900,7 +906,8 @@ function createInfallingParticles(count = MOBILE_DEVICE ? 420 : 850) {
     uniforms: {
       uTime: { value: 0 },
       uGravity: { value: 0 },
-      uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, 2) }
+      uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, 2) },
+      uOpacity: { value: 1.0 }
     },
     vertexShader: `
       attribute float aAngle;
@@ -939,6 +946,7 @@ function createInfallingParticles(count = MOBILE_DEVICE ? 420 : 850) {
     `,
     fragmentShader: `
       precision mediump float;
+      uniform float uOpacity;
       varying float vHeat;
       varying float vAlpha;
 
@@ -946,7 +954,7 @@ function createInfallingParticles(count = MOBILE_DEVICE ? 420 : 850) {
         vec2 q = gl_PointCoord - 0.5;
         float d = length(q);
         if (d > 0.5) discard;
-        float a = smoothstep(0.5, 0.05, d) * vAlpha;
+        float a = smoothstep(0.5, 0.05, d) * vAlpha * uOpacity;
 
         vec3 outer = vec3(0.95, 0.32, 0.08);
         vec3 inner = vec3(1.00, 0.95, 0.85);
@@ -1425,14 +1433,31 @@ const AR_STORY = [
 
 function setARStoryStage(index) {
   if (index === arStoryStage || index < 0 || index >= AR_STORY.length) return;
+  const previous = arStoryStage;
   arStoryStage = index;
   const data = AR_STORY[index];
   const panel = $('#arStory');
   panel?.classList.add('active');
   panel?.setAttribute('aria-hidden','false');
-  if ($('#arStoryStep')) $('#arStoryStep').textContent = data.step;
-  if ($('#arStoryTitle')) $('#arStoryTitle').textContent = data.title;
-  if ($('#arStoryText')) $('#arStoryText').textContent = data.text;
+
+  const applyCopy = () => {
+    if ($('#arStoryStep')) $('#arStoryStep').textContent = data.step;
+    if ($('#arStoryTitle')) $('#arStoryTitle').textContent = data.title;
+    if ($('#arStoryText')) $('#arStoryText').textContent = data.text;
+  };
+
+  clearTimeout(arStoryTextTimer);
+  if (previous < 0 || !panel) {
+    applyCopy();
+    panel?.classList.remove('changing');
+    return;
+  }
+
+  panel.classList.add('changing');
+  arStoryTextTimer = setTimeout(() => {
+    applyCopy();
+    requestAnimationFrame(() => panel.classList.remove('changing'));
+  },120);
 }
 
 function startARStory() {
@@ -1445,13 +1470,20 @@ function startARStory() {
   formationStar.scale.setScalar(AR_WORLD_SCALE);
   scene.add(formationStar);
 
-  blackHole.visible = false;
-  blackHole.scale.setScalar(AR_WORLD_SCALE * userMass * .18);
-  if (blackHole.userData.particles) blackHole.userData.particles.visible = false;
+  blackHole.visible = true;
+  blackHole.scale.setScalar(AR_WORLD_SCALE * userMass * 0.012 * arScaleCurrent);
+  if (blackHole.userData.particles) {
+    blackHole.userData.particles.visible = true;
+    if (blackHole.userData.particles.material?.uniforms?.uOpacity) {
+      blackHole.userData.particles.material.uniforms.uOpacity.value = 0.0;
+    }
+  }
   if (blackHole.userData.jets) blackHole.userData.jets.visible = false;
 
-  userBrightness = .06;
-  enableLensingWarp = false;
+  userBrightness = .02;
+  arLensingStrength = 0.0;
+  arDiskAlpha = 0.0;
+  enableLensingWarp = true;
   jetEnabled = false;
 
   arStoryStart = performance.now();
@@ -1468,14 +1500,25 @@ function startARStory() {
 
 function finishARStory() {
   arStoryRunning = false;
+  arScaleCurrent = 1.0;
+  arScaleTarget = 1.0;
+  arLensingStrength = 0.0;
+  arDiskAlpha = 0.0;
   removeFormationStar();
 
   blackHole.visible = true;
-  blackHole.scale.setScalar(AR_WORLD_SCALE * userMass);
-  if (blackHole.userData.particles) blackHole.userData.particles.visible = true;
+  blackHole.scale.setScalar(AR_WORLD_SCALE * userMass * arScaleCurrent);
+  if (blackHole.userData.particles) {
+    blackHole.userData.particles.visible = true;
+    if (blackHole.userData.particles.material?.uniforms?.uOpacity) {
+      blackHole.userData.particles.material.uniforms.uOpacity.value = 1.0;
+    }
+  }
   if (blackHole.userData.jets) blackHole.userData.jets.visible = false;
 
   userBrightness = AR_FINAL_BRIGHTNESS;
+  arLensingStrength = 1.0;
+  arDiskAlpha = 1.0;
   enableLensingWarp = true;
 
   const panel = $('#arStory');
@@ -1489,7 +1532,7 @@ function finishARStory() {
   if ($('#snapshotBtn')) $('#snapshotBtn').style.display = '';
   if (hint) {
     hint.style.opacity = '1';
-    hint.textContent = 'หลุมดำพร้อมแล้ว · ถ่ายภาพ หรือวางใหม่';
+    hint.textContent = 'หนีบสองนิ้วเพื่อย่อ/ขยาย · ถ่ายภาพ หรือวางใหม่';
     setTimeout(() => { if (hint) hint.style.opacity = '0'; }, 3200);
   }
   setAudioPhase('ambient');
@@ -1505,6 +1548,7 @@ function updateARStory(now) {
     if (t >= AR_STORY[i].at) stage = i;
   }
   setARStoryStage(stage);
+
   const storyAudioPhases=['star','collapse','blackhole','accretion','lensing','horizon'];
   if (storyAudioPhases[stage] && audioPhase !== storyAudioPhases[stage]) {
     setAudioPhase(storyAudioPhases[stage]);
@@ -1513,30 +1557,33 @@ function updateARStory(now) {
   const progress = Math.min(1,t/25);
   if ($('#arStoryProgress')) $('#arStoryProgress').style.transform = 'scaleX(' + progress + ')';
 
+  // One continuous visual evolution instead of six on/off scenes.
+  const collapse = THREE.MathUtils.smoothstep(t,3.2,8.6);
+  const holeReveal = THREE.MathUtils.smoothstep(t,4.8,10.6);
+  const diskBuild = THREE.MathUtils.smoothstep(t,8.4,14.6);
+  const lensBuild = THREE.MathUtils.smoothstep(t,13.2,19.6);
+
   if (formationStar) {
-    const collapse = THREE.MathUtils.clamp((t - 4) / 3,0,1);
     const pulse = 1 + Math.sin(t * 4.2) * .018 * (1-collapse);
-    formationStar.scale.setScalar(
-      AR_WORLD_SCALE * THREE.MathUtils.lerp(pulse,.08,collapse)
-    );
+    const starScale = THREE.MathUtils.lerp(pulse,.022,collapse);
+    formationStar.scale.setScalar(AR_WORLD_SCALE * arScaleCurrent * starScale);
     formationStar.rotation.y += .003;
     if (formationStar.userData.starMat) formationStar.userData.starMat.uniforms.uTime.value = t;
     if (formationStar.userData.haloMat) formationStar.userData.haloMat.uniforms.uTime.value = t;
-    formationStar.visible = t < 7.1;
+    // It is effectively a point before being hidden, so the disappearance is not visible.
+    formationStar.visible = t < 9.5;
   }
 
-  if (t >= 6.2) {
-    blackHole.visible = true;
-    const reveal = THREE.MathUtils.smoothstep(t,6.2,10.0);
-    blackHole.scale.setScalar(
-      AR_WORLD_SCALE * userMass * THREE.MathUtils.lerp(.16,1.0,reveal)
-    );
-    const brightProgress = THREE.MathUtils.clamp((t - 7.0) / 9.0,0,1);
-    userBrightness = THREE.MathUtils.lerp(.055,AR_FINAL_BRIGHTNESS,brightProgress);
+  const holeScale = THREE.MathUtils.lerp(.012,1.0,holeReveal);
+  blackHole.scale.setScalar(AR_WORLD_SCALE * userMass * arScaleCurrent * holeScale);
+  userBrightness = THREE.MathUtils.lerp(.018,AR_FINAL_BRIGHTNESS,diskBuild);
+
+  arDiskAlpha = diskBuild;
+  if (blackHole.userData.particles?.material?.uniforms?.uOpacity) {
+    blackHole.userData.particles.material.uniforms.uOpacity.value = diskBuild;
   }
 
-  if (t >= 11 && blackHole.userData.particles) blackHole.userData.particles.visible = true;
-  if (t >= 16) enableLensingWarp = true;
+  arLensingStrength = lensBuild;
 
   if (t >= 20.15 && !arHorizonDuckDone) {
     arHorizonDuckDone = true;
@@ -1646,6 +1693,10 @@ function placeBlackHole() {
       blackHole.position.set(0, 0, 0);
     } else {
       blackHole.position.copy(reticle.position);
+    }
+    if (visitorExperience === 'ar') {
+      arScaleCurrent = 1.0;
+      arScaleTarget = 1.0;
     }
     const placementScale = visitorExperience === 'ar' ? AR_WORLD_SCALE : baseScale;
     blackHole.scale.setScalar(placementScale * userMass);
@@ -1768,6 +1819,16 @@ function updateGravity(activeCamera, dt) {
   updateAudio(gravity);
 }
 
+function updateARObjectScale(dt) {
+  if (visitorExperience !== 'ar' || !placed) return;
+  const ease = 1 - Math.exp(-12.0 * Math.max(.001,dt));
+  arScaleCurrent += (arScaleTarget - arScaleCurrent) * ease;
+
+  if (!arStoryRunning && blackHole?.visible) {
+    blackHole.scale.setScalar(AR_WORLD_SCALE * userMass * arScaleCurrent);
+  }
+}
+
 function animateRealisticBlackHole(t, activeCamera) {
   if (!blackHole || !blackHole.visible) return;
   const { core, rayVolume, particles, jets } = blackHole.userData;
@@ -1784,7 +1845,10 @@ function animateRealisticBlackHole(t, activeCamera) {
     rayVolume.material.uniforms.uMass.value = userMass;
     rayVolume.material.uniforms.uSpin.value = userSpin;
     rayVolume.material.uniforms.uBrightness.value = userBrightness;
-    rayVolume.material.uniforms.uEnableLensing.value = enableLensingWarp ? 1.0 : 0.0;
+    rayVolume.material.uniforms.uEnableLensing.value =
+      visitorExperience === 'ar'
+        ? arLensingStrength
+        : (enableLensingWarp ? 1.0 : 0.0);
     rayVolume.material.uniforms.uIsSimulator.value = (mode === 'simulator' || mode === 'intro') ? 1.0 : 0.0;
   }
 
@@ -1839,6 +1903,7 @@ function renderCommon(activeCamera, now) {
   lastFrame = now;
   adaptMobileQuality(dt);
   updateGravity(activeCamera, dt);
+  updateARObjectScale(dt);
   updateARStory(now);
   animateRealisticBlackHole(now / 1000, activeCamera);
   publishScreenAnchor(blackHole, activeCamera);
@@ -2050,6 +2115,12 @@ function setupSimulatorControls() {
   const isBlockedTarget = (target) =>
     target?.closest?.('button, .interactive-ui, .topbar, .earth-timeline, .cinema-bar, .dock');
 
+  const isARZoomable = () =>
+    visitorExperience === 'ar' &&
+    placed &&
+    !moving &&
+    (mode === 'xr' || mode === 'fallback');
+
   const markManual = () => {
     cameraCinematicMode = 'manual';
     document.querySelectorAll('.cinema-pill').forEach((p) => {
@@ -2115,13 +2186,36 @@ function setupSimulatorControls() {
   };
 
   const onWheel = (e) => {
-    if (mode !== 'simulator' || isBlockedTarget(e.target)) return;
+    if (isBlockedTarget(e.target)) return;
+    if (isARZoomable()) {
+      arScaleTarget = THREE.MathUtils.clamp(
+        arScaleTarget * Math.exp(-e.deltaY * 0.0008),
+        0.65,
+        1.45
+      );
+      return;
+    }
+    if (mode !== 'simulator') return;
     zoomBy(e.deltaY * (visitorExperience === 'lab' ? 0.0042 : 0.0035));
   };
 
-  // Mobile: one finger rotates; two fingers pinch-zoom.
+  // Mobile: simulator rotates/zooms; AR uses two-finger pinch to scale the placed object.
   const onTouchStart = (e) => {
-    if (mode !== 'simulator' || isBlockedTarget(e.target)) return;
+    if (isBlockedTarget(e.target)) return;
+
+    if (isARZoomable()) {
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+        touchMode = 'pinch';
+        touchPinchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      }
+      return;
+    }
+
+    if (mode !== 'simulator') return;
 
     if (e.touches.length >= 2) {
       touchMode = 'pinch';
@@ -2146,7 +2240,30 @@ function setupSimulatorControls() {
   };
 
   const onTouchMove = (e) => {
-    if (mode !== 'simulator' || isBlockedTarget(e.target)) return;
+    if (isBlockedTarget(e.target)) return;
+
+    if (isARZoomable()) {
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+        const d = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (touchPinchDist > 0 && d > 0) {
+          const ratio = d / touchPinchDist;
+          arScaleTarget = THREE.MathUtils.clamp(
+            arScaleTarget * ratio,
+            0.65,
+            1.45
+          );
+        }
+        touchPinchDist = d;
+        touchMode = 'pinch';
+      }
+      return;
+    }
+
+    if (mode !== 'simulator') return;
 
     if (e.touches.length >= 2) {
       const d = Math.hypot(
@@ -2175,6 +2292,14 @@ function setupSimulatorControls() {
   };
 
   const onTouchEnd = (e) => {
+    if (isARZoomable()) {
+      if (e.touches.length < 2) {
+        touchMode='none';
+        touchPinchDist=0;
+      }
+      return;
+    }
+
     if (e.touches.length === 0) {
       touchMode='none';
       touchPinchDist=0;
@@ -2195,8 +2320,8 @@ function setupSimulatorControls() {
   window.addEventListener('mouseup',onMouseUp);
   window.addEventListener('wheel',onWheel,{ passive:true });
 
-  window.addEventListener('touchstart',onTouchStart,{ passive:true });
-  window.addEventListener('touchmove',onTouchMove,{ passive:true });
+  window.addEventListener('touchstart',onTouchStart,{ passive:false });
+  window.addEventListener('touchmove',onTouchMove,{ passive:false });
   window.addEventListener('touchend',onTouchEnd,{ passive:true });
   window.addEventListener('touchcancel',onTouchEnd,{ passive:true });
 }
