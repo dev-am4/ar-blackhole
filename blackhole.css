@@ -924,10 +924,6 @@ html[data-experience="ar"] #placeBtn{
 html[data-experience="ar"] #moveBtn{
   flex:0 1 180px;
 }
-html[data-experience="ar"] #snapshotBtn{
-  display:none;
-}
-
 /* LAB: the experiment panel is the interface. */
 html[data-experience="lab"] #feed{display:none!important}
 html[data-experience="lab"] .dock{display:none!important}
