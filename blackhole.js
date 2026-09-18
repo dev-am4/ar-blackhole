@@ -24,6 +24,7 @@ const retryBtn = $('#retryBtn');
 const PARAMS = new URLSearchParams(location.search);
 const DEBUG = PARAMS.has('debug');
 const KIOSK = PARAMS.has('kiosk');
+const CINEMATIC_OVERLAY = PARAMS.get('cinematic') === '1';
 if (DEBUG && hud) hud.classList.add('on');
 if (KIOSK) document.documentElement.dataset.kiosk = '1';
 
@@ -34,6 +35,13 @@ const prefersDesktopSimulator = () =>
 
 let cinematicLoadPromise = null;
 function ensureCinematicLayer() {
+  // The generated cinematic WebP contains its own black-hole image.
+  // Never stack it over the native Three.js black hole in production.
+  // Keep it available only as an explicit diagnostic/creative mode.
+  if (!CINEMATIC_OVERLAY) {
+    document.querySelector('#cinematicBlackHoleWrap')?.remove();
+    return Promise.resolve();
+  }
   if (cinematicLoadPromise || matchMedia('(prefers-reduced-motion: reduce)').matches) {
     return cinematicLoadPromise || Promise.resolve();
   }
@@ -1367,7 +1375,8 @@ function renderSimulator(now) {
   if (cameraCinematicMode === 'orbit') {
     simOrbit.theta += 0.0032;
     simOrbit.phi = 1.25 + Math.sin(now * 0.0006) * 0.15;
-    simOrbit.radius = THREE.MathUtils.lerp(simOrbit.radius, 5.2, 0.04);
+    const orbitRadius = (innerHeight > innerWidth && innerWidth <= 700) ? 6.35 : 5.2;
+    simOrbit.radius = THREE.MathUtils.lerp(simOrbit.radius, orbitRadius, 0.04);
   } else if (cameraCinematicMode !== 'manual') {
     simOrbit.theta = THREE.MathUtils.lerp(simOrbit.theta, targetTheta, 0.06);
     simOrbit.phi = THREE.MathUtils.lerp(simOrbit.phi, targetPhi, 0.06);
@@ -1517,8 +1526,11 @@ function startSimulatorMode() {
   if (feed) feed.style.display = 'none';
   if (simulatorStars) simulatorStars.visible = true;
 
-  // Reset orbit camera to perfectly framed default
-  simOrbit.radius = 5.2;
+  // Reset orbit camera to a portrait-safe frame.
+  // The old 5.2 radius placed the camera just outside the raymarch volume,
+  // making the black hole fill/crop the screen on tall phones.
+  const portraitPhone = innerHeight > innerWidth && innerWidth <= 700;
+  simOrbit.radius = portraitPhone ? 6.35 : 5.2;
   simOrbit.theta = 0.25;
   simOrbit.phi = 1.25;
   simOrbit.target.set(0, 0.78, 0);
@@ -1534,7 +1546,6 @@ function startSimulatorMode() {
   updateSimulatorCamera();
   
   renderer.setAnimationLoop(renderSimulator);
-  setStatus('โหมดจำลอง 3D เสมือนจริง', true);
   if (hint) {
     hint.textContent = 'เลื่อนหน้าจอเพื่อหมุนมุมมอง • ซูมเข้าออกได้';
     hint.style.opacity = '1';
@@ -1543,7 +1554,10 @@ function startSimulatorMode() {
       hint.style.opacity = '0';
     }, 3500);
   }
-  updateReady(true);
+  // Do not call updateReady() after auto-placement: it belongs to the
+  // placement-reticle state and used to overwrite this with "จับพื้นได้แล้ว".
+  reticleReady = true;
+  setStatus('โหมดจำลอง 3D เสมือนจริง', true);
 }
 
 // -----------------------------------------------------------------------------
