@@ -1,0 +1,10 @@
+{
+  "name": "AR Black Hole · Zone 5 Space Mission · นครสวรรค์",
+  "description": "AR Black Hole สถานีที่ 5 ใน Space Mission Interactive Zone ศูนย์วิทยาศาสตร์เพื่อการศึกษานครสวรรค์",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
