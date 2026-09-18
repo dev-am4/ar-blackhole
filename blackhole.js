@@ -144,7 +144,9 @@ let gravityTarget = 0;
 let lastFrame = performance.now();
 let nearLatch = false;
 let audio = null;
-let soundEnabled = false;
+let soundEnabled = true;
+let audioNarrativeIntensity = 0.18;
+let audioPhase = 'ambient';
 let jetEnabled = true;
 let cameraCinematicMode = 'manual';
 let targetTheta = 0.25;
@@ -236,103 +238,222 @@ function requestOrientation() {
 }
 
 // -----------------------------------------------------------------------------
-// NASA-inspired Audio Engine (Deep cosmic gravity hum + relativistic accretion)
+// Original cinematic space score engine
+// Organ-like drone + slow pulse + air texture + event swells.
+// No sampled soundtrack and no copied melody.
 // -----------------------------------------------------------------------------
+function makeImpulseResponse(ctx, seconds = 2.8, decay = 2.6) {
+  const length = Math.floor(ctx.sampleRate * seconds);
+  const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+  for (let ch=0; ch<2; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i=0; i<length; i++) {
+      const t = i / length;
+      data[i] = (Math.random()*2-1) * Math.pow(1-t,decay) * 0.32;
+    }
+  }
+  return buffer;
+}
+
 function initAudio() {
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
+
     const ctx = new AC();
     const master = ctx.createGain();
     master.gain.value = 0.0001;
 
-    // Sub-bass gravitational wave hum (48-72 Hz)
-    const low = ctx.createOscillator();
-    const lowGain = ctx.createGain();
-    low.type = 'sine';
-    low.frequency.value = 52;
-    lowGain.gain.value = 0.65;
-    low.connect(lowGain).connect(master);
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -22;
+    compressor.knee.value = 24;
+    compressor.ratio.value = 3;
+    compressor.attack.value = 0.015;
+    compressor.release.value = 0.42;
 
-    // Deep cosmic resonance
+    const dry = ctx.createGain();
+    dry.gain.value = .88;
+    const wet = ctx.createGain();
+    wet.gain.value = .18;
+    const convolver = ctx.createConvolver();
+    convolver.buffer = makeImpulseResponse(ctx);
+
+    dry.connect(compressor);
+    convolver.connect(wet).connect(compressor);
+    compressor.connect(master).connect(ctx.destination);
+
+    const organGain = ctx.createGain();
+    organGain.gain.value = .03;
+    const organFilter = ctx.createBiquadFilter();
+    organFilter.type = 'lowpass';
+    organFilter.frequency.value = 1100;
+    organFilter.Q.value = .55;
+    organGain.connect(organFilter);
+    organFilter.connect(dry);
+    organFilter.connect(convolver);
+
+    // Open fifth / suspended chord voicing; intentionally no melody.
+    const organFreqs = [73.42, 110.0, 146.83, 220.0];
+    const organOscs = organFreqs.map((freq,i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = i < 2 ? 'sine' : 'triangle';
+      o.frequency.value = freq;
+      o.detune.value = [-5,3,-2,5][i];
+      g.gain.value = [0.34,0.22,0.13,0.055][i];
+      o.connect(g).connect(organGain);
+      o.start();
+      return {o,g};
+    });
+
     const sub = ctx.createOscillator();
     const subGain = ctx.createGain();
-    sub.type = 'triangle';
-    sub.frequency.value = 26;
-    subGain.gain.value = 0.45;
-    sub.connect(subGain).connect(master);
-
-    // Accretion disk plasma turbulence noise
-    const bufferSize = ctx.sampleRate * 2;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    let b0 = 0, b1 = 0, b2 = 0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + white * 0.0555179;
-      b1 = 0.99332 * b1 + white * 0.0750759;
-      b2 = 0.96900 * b2 + white * 0.1538520;
-      output[i] = (b0 + b1 + b2) * 0.11;
-    }
-    const noiseSource = ctx.createBufferSource();
-    noiseSource.buffer = noiseBuffer;
-    noiseSource.loop = true;
-
-    const noiseFilter = ctx.createBiquadFilter();
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = 220;
-    noiseFilter.Q.value = 2.8;
-
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.value = 0.02;
-
-    noiseSource.connect(noiseFilter).connect(noiseGain).connect(master);
-    master.connect(ctx.destination);
-
-    low.start();
+    sub.type = 'sine';
+    sub.frequency.value = 36.71;
+    subGain.gain.value = .045;
+    sub.connect(subGain).connect(dry);
     sub.start();
-    noiseSource.start();
-    ctx.resume().catch(() => {});
 
-    return { ctx, master, low, sub, noiseFilter, noiseGain };
+    const bufferSize = ctx.sampleRate * 2;
+    const noiseBuffer = ctx.createBuffer(1,bufferSize,ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    let brown=0;
+    for(let i=0;i<bufferSize;i++){
+      const white=Math.random()*2-1;
+      brown=(brown + .02*white)/1.02;
+      output[i]=brown*2.2;
+    }
+    const air = ctx.createBufferSource();
+    air.buffer=noiseBuffer;
+    air.loop=true;
+    const airFilter=ctx.createBiquadFilter();
+    airFilter.type='bandpass';
+    airFilter.frequency.value=620;
+    airFilter.Q.value=.6;
+    const airGain=ctx.createGain();
+    airGain.gain.value=.008;
+    air.connect(airFilter).connect(airGain);
+    airGain.connect(dry);
+    airGain.connect(convolver);
+    air.start();
+
+    const pulse = () => {
+      if (!soundEnabled || ctx.state !== 'running') return;
+      const now=ctx.currentTime;
+      const o=ctx.createOscillator();
+      const g=ctx.createGain();
+      const f=ctx.createBiquadFilter();
+      o.type='sine';
+      o.frequency.setValueAtTime(180,now);
+      o.frequency.exponentialRampToValueAtTime(72,now+.16);
+      f.type='lowpass';
+      f.frequency.value=620;
+      const amp=.008 + audioNarrativeIntensity*.025;
+      g.gain.setValueAtTime(.0001,now);
+      g.gain.exponentialRampToValueAtTime(amp,now+.012);
+      g.gain.exponentialRampToValueAtTime(.0001,now+.22);
+      o.connect(f).connect(g).connect(dry);
+      o.start(now);
+      o.stop(now+.24);
+    };
+    const pulseTimer=setInterval(pulse,1250);
+
+    ctx.resume().catch(()=>{});
+    return {ctx,master,dry,wet,convolver,organGain,organFilter,organOscs,sub,subGain,airFilter,airGain,pulseTimer};
   } catch {
     return null;
   }
 }
 
-function toggleAudio() {
-  soundEnabled = !soundEnabled;
-  const soundBtn = $('#soundToggleBtn');
-  if (soundBtn) {
-    soundBtn.classList.toggle('sound-active', soundEnabled);
-    soundBtn.textContent = soundEnabled ? '🔊 เสียงเปิด' : '🔇 เสียงปิด';
+function syncSoundButton() {
+  const compact=$('#experienceSoundBtn');
+  if(compact){
+    compact.classList.toggle('sound-active',soundEnabled);
+    compact.textContent=soundEnabled?'🔊':'🔇';
+    compact.setAttribute('aria-pressed',soundEnabled?'true':'false');
   }
-
-  if (soundEnabled) {
-    if (!audio) audio = initAudio();
-    if (audio?.ctx?.state === 'suspended') {
-      audio.ctx.resume().catch(() => {});
-    }
-    updateAudio(gravity);
-  } else if (audio?.master) {
-    audio.master.gain.setTargetAtTime(0.0001, audio.ctx.currentTime, 0.08);
+  const legacy=$('#soundToggleBtn');
+  if(legacy){
+    legacy.classList.toggle('sound-active',soundEnabled);
+    legacy.textContent=soundEnabled?'🔊 เสียงเปิด':'🔇 เสียงปิด';
   }
 }
 
+function enableExperienceAudio() {
+  soundEnabled=true;
+  if(!audio) audio=initAudio();
+  audio?.ctx?.resume?.().catch(()=>{});
+  syncSoundButton();
+  updateAudio(gravity);
+}
+
+function toggleAudio() {
+  soundEnabled=!soundEnabled;
+  if(soundEnabled){
+    if(!audio) audio=initAudio();
+    audio?.ctx?.resume?.().catch(()=>{});
+    updateAudio(gravity);
+  } else if(audio?.master) {
+    audio.master.gain.setTargetAtTime(.0001,audio.ctx.currentTime,.12);
+  }
+  syncSoundButton();
+}
+
+function triggerHorizonSwell() {
+  if(!audio || !soundEnabled) return;
+  const {ctx,dry,convolver}=audio;
+  const now=ctx.currentTime;
+  const o=ctx.createOscillator();
+  const g=ctx.createGain();
+  o.type='triangle';
+  o.frequency.setValueAtTime(92,now);
+  o.frequency.exponentialRampToValueAtTime(31,now+2.4);
+  g.gain.setValueAtTime(.0001,now);
+  g.gain.exponentialRampToValueAtTime(.11,now+.38);
+  g.gain.exponentialRampToValueAtTime(.0001,now+2.7);
+  o.connect(g);
+  g.connect(dry);
+  g.connect(convolver);
+  o.start(now);
+  o.stop(now+2.8);
+}
+
+function setAudioPhase(phase) {
+  audioPhase=phase;
+  const map={
+    ambient:.18,
+    star:.22,
+    collapse:.42,
+    blackhole:.55,
+    accretion:.66,
+    lensing:.78,
+    far:.25,
+    gravity:.46,
+    tidal:.70,
+    horizon:1.0
+  };
+  audioNarrativeIntensity=map[phase] ?? .3;
+  if(phase==='horizon') triggerHorizonSwell();
+  updateAudio(gravity);
+}
+
 function updateAudio(strength) {
-  if (!audio || !soundEnabled) {
-    if (audio?.master && !soundEnabled) {
-      audio.master.gain.setTargetAtTime(0.0001, audio.ctx.currentTime, 0.08);
+  if(!audio || !soundEnabled){
+    if(audio?.master && !soundEnabled){
+      audio.master.gain.setTargetAtTime(.0001,audio.ctx.currentTime,.12);
     }
     return;
   }
-  const t = audio.ctx.currentTime;
-  const vol = 0.025 + strength * 0.075;
-  audio.master.gain.setTargetAtTime(vol, t, 0.08);
-  audio.low.frequency.setTargetAtTime(32 + strength * 32, t, 0.08);
-  audio.sub.frequency.setTargetAtTime(20 + strength * 16, t, 0.08);
-  audio.noiseFilter.frequency.setTargetAtTime(140 + strength * 500, t, 0.08);
-  audio.noiseGain.gain.setTargetAtTime(0.02 + strength * 0.05, t, 0.08);
+  const t=audio.ctx.currentTime;
+  const intensity=Math.max(.12,Math.min(1,Math.max(strength*.72,audioNarrativeIntensity)));
+  const volume=.028 + intensity*.052;
+  audio.master.gain.setTargetAtTime(volume,t,.28);
+  audio.organGain.gain.setTargetAtTime(.025 + intensity*.052,t,.45);
+  audio.subGain.gain.setTargetAtTime(.026 + intensity*.075,t,.32);
+  audio.organFilter.frequency.setTargetAtTime(720 + intensity*1280,t,.5);
+  audio.airFilter.frequency.setTargetAtTime(420 + intensity*1050,t,.4);
+  audio.airGain.gain.setTargetAtTime(.004 + intensity*.020,t,.4);
+  audio.wet.gain.setTargetAtTime(.12 + intensity*.13,t,.55);
 }
 
 // -----------------------------------------------------------------------------
@@ -1182,6 +1303,7 @@ function startARStory() {
   arStoryRunning = true;
   arStoryStage = -1;
   setARStoryStage(0);
+  setAudioPhase('star');
 
   if (moveBtn) moveBtn.hidden = true;
   if ($('#snapshotBtn')) $('#snapshotBtn').style.display = 'none';
@@ -1214,6 +1336,7 @@ function finishARStory() {
     hint.textContent = 'หลุมดำพร้อมแล้ว · ถ่ายภาพ หรือวางใหม่';
     setTimeout(() => { if (hint) hint.style.opacity = '0'; }, 3200);
   }
+  setAudioPhase('ambient');
   setStatus('AR · BLACK HOLE', true);
 }
 
@@ -1226,6 +1349,10 @@ function updateARStory(now) {
     if (t >= AR_STORY[i].at) stage = i;
   }
   setARStoryStage(stage);
+  const storyAudioPhases=['star','collapse','blackhole','accretion','lensing','horizon'];
+  if (storyAudioPhases[stage] && audioPhase !== storyAudioPhases[stage]) {
+    setAudioPhase(storyAudioPhases[stage]);
+  }
 
   const progress = Math.min(1,t/25);
   if ($('#arStoryProgress')) $('#arStoryProgress').style.transform = 'scaleX(' + progress + ')';
@@ -2502,6 +2629,7 @@ function clearGravityLab() {
   activeExperimentType = null;
   lastExperimentPhase = '';
   updateLabPhaseUI('far');
+  if (visitorExperience === 'lab') setAudioPhase('ambient');
   $('#labObjectTag')?.classList.remove('active');
   $('#labObjectTag')?.setAttribute('aria-hidden','true');
   document.querySelectorAll('.experiment-object').forEach((b) => b.classList.remove('active'));
@@ -2649,6 +2777,7 @@ function launchGravityLab(type) {
   });
 
   updateLabPhaseUI('far',item);
+  setAudioPhase('far');
   experimentUI(
     '1 / 4 · START',
     config.label + ' เริ่มจากระยะไกล',
@@ -2721,6 +2850,7 @@ function updateExperimentNarrative(item, progress) {
     lastExperimentPhase = phase;
     item.phase = phase;
     updateLabPhaseUI(phase,item);
+    setAudioPhase(phase);
     experimentUI(state,title,text,event);
     navigator.vibrate?.(phase === 'horizon' ? [28,32,48] : 16);
   }
@@ -2859,6 +2989,8 @@ async function launch() {
   launching = true;
   setVisitorExperience('ar');
   audio = initAudio();
+  enableExperienceAudio();
+  setAudioPhase('ambient');
   ensureCinematicLayer();
 
   const launchLabel = startBtn?.querySelector('i');
@@ -2935,6 +3067,8 @@ function setupInteractiveUI() {
     simIntroBtn.addEventListener('click', () => {
       setVisitorExperience('lab');
       audio = initAudio();
+      enableExperienceAudio();
+      setAudioPhase('ambient');
       ensureCinematicLayer();
 
       const simLabel = simIntroBtn.querySelector('i');
@@ -3167,6 +3301,7 @@ function setupInteractiveUI() {
   }
 
   // Sound Toggle
+  $('#experienceSoundBtn')?.addEventListener('click', toggleAudio);
   const soundToggleBtn = $('#soundToggleBtn');
   if (soundToggleBtn) {
     soundToggleBtn.addEventListener('click', toggleAudio);
