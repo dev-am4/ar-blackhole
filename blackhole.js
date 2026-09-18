@@ -25,6 +25,20 @@ const PARAMS = new URLSearchParams(location.search);
 const DEBUG = PARAMS.has('debug');
 const KIOSK = PARAMS.has('kiosk');
 const CINEMATIC_OVERLAY = PARAMS.get('cinematic') === '1';
+const FORCE_CAMERA_FALLBACK = PARAMS.get('camera') === '1';
+const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const MOBILE_DEVICE = matchMedia('(pointer:coarse)').matches
+  || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const LOW_POWER_MOBILE = MOBILE_DEVICE && (
+  (navigator.deviceMemory && navigator.deviceMemory <= 4)
+  || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 6)
+);
+const MAX_PIXEL_RATIO = LOW_POWER_MOBILE ? 1.0 : MOBILE_DEVICE ? 1.25 : 2.0;
+const RAYMARCH_STEPS = LOW_POWER_MOBILE ? 40 : MOBILE_DEVICE ? 52 : 76;
+const FBM_OCTAVES = MOBILE_DEVICE ? 3 : 4;
+document.documentElement.dataset.device = MOBILE_DEVICE ? 'mobile' : 'desktop';
+if (IS_IOS) document.documentElement.dataset.ios = '1';
 if (DEBUG && hud) hud.classList.add('on');
 if (KIOSK) document.documentElement.dataset.kiosk = '1';
 
@@ -32,6 +46,15 @@ const prefersDesktopSimulator = () =>
   matchMedia('(pointer:fine)').matches &&
   !matchMedia('(pointer:coarse)').matches &&
   !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+const modeHint = $('#modeHint');
+if (modeHint) {
+  modeHint.textContent = IS_IOS
+    ? 'บน iPhone/iPad ระบบจะใช้ 3D Simulator เพื่อความลื่นไหลและเสถียร'
+    : MOBILE_DEVICE
+      ? 'ระบบจะใช้ AR เมื่ออุปกรณ์รองรับ และสลับเป็น 3D อัตโนมัติเมื่อไม่รองรับ'
+      : 'ระบบจะเลือกโหมด 3D ให้เหมาะกับอุปกรณ์ของคุณ';
+}
 
 let cinematicLoadPromise = null;
 function ensureCinematicLayer() {
@@ -318,7 +341,7 @@ const GLSL_COMMON_ASTRO = `
     float v = 0.0;
     float a = 0.52;
     mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < ${FBM_OCTAVES}; ++i) {
       v += a * snoise(p);
       p = rot * p * 2.08 + vec2(100.0);
       a *= 0.48;
@@ -396,7 +419,11 @@ const GLSL_COSMIC_STARFIELD = `
 // Gravitational Lensing arches, Doppler Beaming asymmetry, and Event Horizon shadow.
 // -----------------------------------------------------------------------------
 function createRelativisticRaymarchedBlackHole() {
-  const geo = new THREE.SphereGeometry(4.85, 48, 48);
+  const geo = new THREE.SphereGeometry(
+    4.85,
+    MOBILE_DEVICE ? 32 : 48,
+    MOBILE_DEVICE ? 24 : 48
+  );
   const mat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -484,7 +511,7 @@ function createRelativisticRaymarchedBlackHole() {
         float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
         r += v * (0.016 * jitter);
 
-        for (int i = 0; i < 76; i++) {
+        for (int i = 0; i < ${RAYMARCH_STEPS}; i++) {
           float dist = length(r);
           minDist = min(minDist, dist);
 
@@ -612,7 +639,7 @@ function createRelativisticRaymarchedBlackHole() {
 }
 
 // 2. Infalling Matter Streams & Relativistic Accretion Particles
-function createInfallingParticles(count = 850) {
+function createInfallingParticles(count = MOBILE_DEVICE ? 420 : 850) {
   const geo = new THREE.BufferGeometry();
   const angle = new Float32Array(count);
   const radius = new Float32Array(count);
@@ -778,7 +805,7 @@ function createRelativisticJets() {
   group.add(lowerJet);
 
   // Relativistic particle outflow stream
-  const pCount = 380;
+  const pCount = MOBILE_DEVICE ? 170 : 380;
   const pGeo = new THREE.BufferGeometry();
   const pPos = new Float32Array(pCount * 3);
   const pSpeed = new Float32Array(pCount);
@@ -899,14 +926,14 @@ function makeReticle() {
   const group = new THREE.Group();
 
   const outer = new THREE.Mesh(
-    new THREE.RingGeometry(0.18, 0.22, 64),
+    new THREE.RingGeometry(0.18, 0.22, MOBILE_DEVICE ? 32 : 64),
     new THREE.MeshBasicMaterial({ color: 0x8ddcff, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
   );
   outer.rotation.x = -Math.PI / 2;
   group.add(outer);
 
   const inner = new THREE.Mesh(
-    new THREE.RingGeometry(0.035, 0.05, 48),
+    new THREE.RingGeometry(0.035, 0.05, MOBILE_DEVICE ? 24 : 48),
     new THREE.MeshBasicMaterial({ color: 0xffd28f, transparent: true, opacity: 0.95, side: THREE.DoubleSide })
   );
   inner.rotation.x = -Math.PI / 2;
@@ -932,7 +959,7 @@ function makeReticle() {
 
 // Procedural Deep Cosmic SkyDome with Volumetric Nebula & Star Clusters
 function buildCosmicSkyDome() {
-  const geo = new THREE.SphereGeometry(95, 48, 32);
+  const geo = new THREE.SphereGeometry(95, MOBILE_DEVICE ? 32 : 48, MOBILE_DEVICE ? 20 : 32);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -970,7 +997,7 @@ function buildCosmicSpace() {
 
   // 2. Parallax 3D Star Clusters
   const starGeo = new THREE.BufferGeometry();
-  const count = 1800;
+  const count = MOBILE_DEVICE ? 850 : 1800;
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
 
@@ -1019,11 +1046,12 @@ function buildScene() {
   camera.position.set(0, EYE_HEIGHT, 0);
 
   renderer = new THREE.WebGLRenderer({
-    antialias: true,
+    antialias: !LOW_POWER_MOBILE,
     alpha: true,
-    powerPreference: 'high-performance'
+    powerPreference: 'high-performance',
+    precision: MOBILE_DEVICE ? 'mediump' : 'highp'
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.domElement.className = 'gl';
   document.body.appendChild(renderer.domElement);
@@ -1042,7 +1070,7 @@ function buildScene() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     if (blackHole?.userData?.particles?.material?.uniforms?.uPixelRatio) {
-      blackHole.userData.particles.material.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio || 1, 2);
+      blackHole.userData.particles.material.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
     }
   });
 
@@ -1255,9 +1283,34 @@ function animateRealisticBlackHole(t, activeCamera) {
   }
 }
 
+let mobileFrameSamples = 0;
+let mobileFrameTime = 0;
+let mobileQualityReduced = false;
+
+function adaptMobileQuality(dt) {
+  if (!MOBILE_DEVICE || !renderer || mobileQualityReduced) return;
+  mobileFrameSamples++;
+  mobileFrameTime += dt;
+  if (mobileFrameSamples < 90) return;
+
+  const avg = mobileFrameTime / mobileFrameSamples;
+  if (avg > 0.028 && renderer.getPixelRatio() > 0.9) {
+    mobileQualityReduced = true;
+    renderer.setPixelRatio(0.9);
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    if (blackHole?.userData?.particles?.material?.uniforms?.uPixelRatio) {
+      blackHole.userData.particles.material.uniforms.uPixelRatio.value = 0.9;
+    }
+    document.documentElement.dataset.quality = 'lite';
+  }
+  mobileFrameSamples = 0;
+  mobileFrameTime = 0;
+}
+
 function renderCommon(activeCamera, now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000 || 0.016);
   lastFrame = now;
+  adaptMobileQuality(dt);
   updateGravity(activeCamera, dt);
   animateRealisticBlackHole(now / 1000, activeCamera);
   publishScreenAnchor(blackHole, activeCamera);
@@ -1385,7 +1438,7 @@ function renderSimulator(now) {
   if (cameraCinematicMode === 'orbit') {
     simOrbit.theta += 0.0032;
     simOrbit.phi = 1.25 + Math.sin(now * 0.0006) * 0.15;
-    const orbitRadius = (innerHeight > innerWidth && innerWidth <= 700) ? 6.35 : 5.2;
+    const orbitRadius = (innerHeight > innerWidth && innerWidth <= 700) ? 6.65 : 5.2;
     simOrbit.radius = THREE.MathUtils.lerp(simOrbit.radius, orbitRadius, 0.04);
   } else if (cameraCinematicMode !== 'manual') {
     simOrbit.theta = THREE.MathUtils.lerp(simOrbit.theta, targetTheta, 0.06);
@@ -1453,7 +1506,7 @@ function startIntroMode() {
 // -----------------------------------------------------------------------------
 function setupSimulatorControls() {
   const onPointerDown = (e) => {
-    if (mode !== 'simulator' || e.target.closest('button, .physics-panel, .info-drawer, .topbar, .earth-timeline, .cinema-bar')) return;
+    if (mode !== 'simulator' || e.target.closest('button, .interactive-ui, .topbar, .earth-timeline, .cinema-bar, .dock')) return;
     simOrbit.isDragging = true;
     simOrbit.previousMousePosition = { x: e.clientX || e.touches?.[0]?.clientX || 0, y: e.clientY || e.touches?.[0]?.clientY || 0 };
     cameraCinematicMode = 'manual';
@@ -1585,7 +1638,7 @@ function startSimulatorMode() {
   // The old 5.2 radius placed the camera just outside the raymarch volume,
   // making the black hole fill/crop the screen on tall phones.
   const portraitPhone = innerHeight > innerWidth && innerWidth <= 700;
-  simOrbit.radius = portraitPhone ? 6.35 : 5.2;
+  simOrbit.radius = portraitPhone ? 6.65 : 5.2;
   simOrbit.theta = 0.25;
   simOrbit.phi = 1.25;
   simOrbit.target.set(0, 0.78, 0);
@@ -2360,11 +2413,12 @@ async function launch() {
   ensureCinematicLayer();
 
   const desktopSimulator = prefersDesktopSimulator();
-  const orientationPromise = desktopSimulator ? Promise.resolve('denied') : requestOrientation();
-  const xrSessionPromise = desktopSimulator ? Promise.resolve(null) : requestXRSession();
+  const preferStableSimulator = desktopSimulator || (IS_IOS && !FORCE_CAMERA_FALLBACK);
+  const orientationPromise = preferStableSimulator ? Promise.resolve('denied') : requestOrientation();
+  const xrSessionPromise = preferStableSimulator ? Promise.resolve(null) : requestXRSession();
 
   startBtn.disabled = true;
-  startBtn.textContent = desktopSimulator ? 'กำลังเปิด 3D Simulator...' : 'กำลังเปิดประสบการณ์ AR...';
+  startBtn.textContent = preferStableSimulator ? 'กำลังเปิด 3D Simulator...' : 'กำลังตรวจสอบ AR...';
 
   // Trigger Warp Effect
   mode = 'warp';
@@ -2388,7 +2442,7 @@ async function launch() {
       camera.fov = 62;
       camera.updateProjectionMatrix();
 
-      if (desktopSimulator) {
+      if (preferStableSimulator) {
         startSimulatorMode();
         return;
       }
@@ -2396,10 +2450,12 @@ async function launch() {
       const session = await xrSessionPromise;
       if (session) {
         await startXR(session);
-      } else if (navigator.mediaDevices?.getUserMedia) {
+      } else if (FORCE_CAMERA_FALLBACK && navigator.mediaDevices?.getUserMedia) {
         const orientation = await orientationPromise;
         await startFallback(orientation);
       } else {
+        // Unsupported mobile browsers get the stable 3D experience instead
+        // of the camera+gyro pseudo-AR fallback.
         startSimulatorMode();
       }
     } catch (e) {
